@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="さんすうドリル">
+<meta name="theme-color" content="#1e88e5">
+<title>さんすうフラッシュドリル</title>
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --panel: #ffffff;
+    --primary: #1e88e5;
+    --primary-dark: #1565c0;
+    --accent: #ff8a00;
+    --correct: #2e7d32;
+    --wrong: #c62828;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --shadow: 0 6px 20px rgba(0,0,0,0.08);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+    display: flex;
+    flex-direction: column;
+  }
+  h1 {
+    font-size: 24px;
+    text-align: center;
+    margin: 16px 0 8px;
+    color: var(--primary-dark);
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 24px;
+    font-size: 14px;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; }
+  .hidden { display: none !important; }
+
+  /* --- モード選択 --- */
+  .mode-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .mode-btn {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mode-btn:active { transform: scale(0.98); }
+  .mode-btn .emoji { font-size: 32px; }
+  .mode-btn[data-mode="add"] { border-color: #64b5f6; }
+  .mode-btn[data-mode="sub"] { border-color: #ffb74d; }
+  .mode-btn[data-mode="mul"] { border-color: #81c784; }
+
+  .link-row {
+    margin-top: 20px;
+    text-align: center;
+  }
+  .link-row a {
+    color: var(--primary);
+    font-size: 15px;
+    text-decoration: none;
+    padding: 8px 12px;
+  }
+
+  /* --- クイズ画面 --- */
+  .quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 8px 0 16px;
+    font-size: 15px;
+    color: var(--muted);
+  }
+  .back-btn {
+    background: transparent;
+    border: none;
+    color: var(--primary);
+    font-size: 15px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.2s;
+  }
+
+  .question {
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px 16px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .expr {
+    font-size: 52px;
+    font-weight: bold;
+    letter-spacing: 4px;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .answer-box {
+    margin-top: 16px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: bold;
+    color: var(--primary-dark);
+  }
+  .answer-box.correct { color: var(--correct); }
+  .answer-box.wrong { color: var(--wrong); }
+  .answer-placeholder { color: #cfd6df; }
+  .feedback {
+    font-size: 20px;
+    margin-top: 4px;
+    min-height: 28px;
+    font-weight: bold;
+  }
+  .feedback.correct { color: var(--correct); }
+  .feedback.wrong { color: var(--wrong); }
+
+  /* --- テンキー --- */
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 12px;
+  }
+  .key {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    font-size: 28px;
+    font-weight: bold;
+    padding: 18px 0;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    min-height: 60px;
+  }
+  .key:active { transform: scale(0.96); background: #eef3fa; }
+  .key.action-clear { background: #fff3e0; color: #e65100; }
+  .key.action-submit { background: var(--primary); color: white; }
+  .key.action-submit:disabled { background: #b0bec5; }
+  .key.next {
+    grid-column: 1 / -1;
+    background: var(--accent);
+    color: white;
+  }
+
+  /* --- 結果画面 --- */
+  .result-card {
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 32px 20px;
+    text-align: center;
+    margin-top: 24px;
+  }
+  .result-score {
+    font-size: 64px;
+    font-weight: bold;
+    color: var(--primary);
+    margin: 8px 0;
+  }
+  .result-score .total { font-size: 32px; color: var(--muted); }
+  .result-message { font-size: 20px; margin: 8px 0 4px; }
+  .result-mode { color: var(--muted); font-size: 14px; }
+  .result-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .btn {
+    padding: 16px;
+    border-radius: var(--radius);
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-secondary { background: var(--panel); color: var(--primary); border: 2px solid var(--primary); }
+
+  /* --- 統計画面 --- */
+  .stats-summary {
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    text-align: center;
+  }
+  .stat-item .label { font-size: 12px; color: var(--muted); }
+  .stat-item .value { font-size: 22px; font-weight: bold; color: var(--primary-dark); }
+  .chart-card {
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .chart-title {
+    font-size: 15px;
+    font-weight: bold;
+    margin: 0 0 12px;
+    color: var(--text);
+  }
+  .chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 140px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    min-width: 0;
+  }
+  .bar {
+    width: 100%;
+    background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: 4px 4px 0 0;
+    min-height: 2px;
+    position: relative;
+  }
+  .bar.zero { background: var(--border); }
+  .bar-value {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 2px;
+    height: 12px;
+  }
+  .chart-labels {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .chart-labels .lbl {
+    flex: 1;
+    text-align: center;
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .no-data {
+    text-align: center;
+    color: var(--muted);
+    padding: 24px 0;
+  }
+  .danger-link {
+    text-align: center;
+    margin-top: 8px;
+  }
+  .danger-link button {
+    background: transparent;
+    border: none;
+    color: var(--wrong);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>さんすうフラッシュドリル</h1>
+
+  <!-- モード選択 -->
+  <section id="screen-menu" class="screen">
+    <div class="subtitle">モードを えらんでね</div>
+    <div class="mode-buttons">
+      <button class="mode-btn" data-mode="add">
+        <span>たしざん</span><span class="emoji">➕</span>
+      </button>
+      <button class="mode-btn" data-mode="sub">
+        <span>ひきざん</span><span class="emoji">➖</span>
+      </button>
+      <button class="mode-btn" data-mode="mul">
+        <span>かけざん</span><span class="emoji">✖️</span>
+      </button>
+    </div>
+    <div class="link-row">
+      <a href="#" id="link-stats">きろくを みる ›</a>
+    </div>
+  </section>
+
+  <!-- クイズ画面 -->
+  <section id="screen-quiz" class="screen hidden">
+    <div class="quiz-header">
+      <button class="back-btn" data-goto="menu">‹ もどる</button>
+      <span id="quiz-progress-text">1 / 10</span>
+      <span id="quiz-score-text">〇 0</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+    <div class="question">
+      <div class="expr" id="expr"></div>
+      <div class="answer-box" id="answer-box"><span class="answer-placeholder">?</span></div>
+      <div class="feedback" id="feedback"></div>
+    </div>
+
+    <div class="keypad" id="keypad-input">
+      <button class="key" data-key="1">1</button>
+      <button class="key" data-key="2">2</button>
+      <button class="key" data-key="3">3</button>
+      <button class="key" data-key="4">4</button>
+      <button class="key" data-key="5">5</button>
+      <button class="key" data-key="6">6</button>
+      <button class="key" data-key="7">7</button>
+      <button class="key" data-key="8">8</button>
+      <button class="key" data-key="9">9</button>
+      <button class="key action-clear" data-key="clear">けす</button>
+      <button class="key" data-key="0">0</button>
+      <button class="key action-submit" data-key="submit" id="btn-submit">けってい</button>
+    </div>
+
+    <div class="keypad hidden" id="keypad-next">
+      <button class="key next" data-key="next">つぎへ</button>
+    </div>
+  </section>
+
+  <!-- 結果画面 -->
+  <section id="screen-result" class="screen hidden">
+    <div class="result-card">
+      <div class="result-mode" id="result-mode"></div>
+      <div class="result-score"><span id="result-correct">0</span><span class="total"> / 10</span></div>
+      <div class="result-message" id="result-message"></div>
+    </div>
+    <div class="result-actions">
+      <button class="btn btn-primary" data-goto="restart">もういちど</button>
+      <button class="btn btn-secondary" data-goto="menu">メニューへ</button>
+      <button class="btn btn-secondary" data-goto="stats">きろくを みる</button>
+    </div>
+  </section>
+
+  <!-- 統計画面 -->
+  <section id="screen-stats" class="screen hidden">
+    <div class="quiz-header">
+      <button class="back-btn" data-goto="menu">‹ もどる</button>
+      <span>きろく</span>
+      <span></span>
+    </div>
+
+    <div class="stats-summary">
+      <div class="stat-item">
+        <div class="label">きょう</div>
+        <div class="value" id="stat-today">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">7にちかん</div>
+        <div class="value" id="stat-week">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">ごうけい</div>
+        <div class="value" id="stat-total">0</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">せいかいすう（14にちかん）</div>
+      <div id="chart-total"></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">モードべつ（きょう）</div>
+      <div id="chart-mode-today"></div>
+    </div>
+
+    <div class="danger-link">
+      <button id="btn-clear-data">きろくを ぜんぶ けす</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const MODES = {
+    add: { label: 'たしざん', symbol: '＋' },
+    sub: { label: 'ひきざん', symbol: '－' },
+    mul: { label: 'かけざん', symbol: '×' },
+  };
+  const QUESTIONS_PER_SET = 10;
+  const STORAGE_KEY = 'flushdrill_stats_v1';
+
+  const state = {
+    mode: null,
+    questions: [],
+    index: 0,
+    correctCount: 0,
+    input: '',
+    phase: 'input', // 'input' | 'feedback'
+  };
+
+  // --- 問題生成 ---
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+  function generateQuestion(mode) {
+    let a, b, ans, symbol;
+    if (mode === 'add') {
+      // 1年生: 繰り上がりを含む 1〜9 + 1〜9（答え 2〜18）
+      a = randInt(1, 9);
+      b = randInt(1, 9);
+      ans = a + b;
+      symbol = '＋';
+    } else if (mode === 'sub') {
+      // 1〜18 から 1〜9 を引く。答えが 0 以上
+      a = randInt(2, 18);
+      b = randInt(1, Math.min(9, a));
+      ans = a - b;
+      symbol = '－';
+    } else if (mode === 'mul') {
+      // 2年生 九九: 1〜9 × 1〜9
+      a = randInt(1, 9);
+      b = randInt(1, 9);
+      ans = a * b;
+      symbol = '×';
+    }
+    return { a, b, ans, symbol };
+  }
+  function generateSet(mode) {
+    const set = [];
+    for (let i = 0; i < QUESTIONS_PER_SET; i++) {
+      set.push(generateQuestion(mode));
+    }
+    return set;
+  }
+
+  // --- 画面切替 ---
+  const screens = {
+    menu: document.getElementById('screen-menu'),
+    quiz: document.getElementById('screen-quiz'),
+    result: document.getElementById('screen-result'),
+    stats: document.getElementById('screen-stats'),
+  };
+  function showScreen(name) {
+    Object.entries(screens).forEach(([k, el]) => {
+      el.classList.toggle('hidden', k !== name);
+    });
+    if (name === 'stats') renderStats();
+  }
+
+  // --- クイズ ---
+  function startQuiz(mode) {
+    state.mode = mode;
+    state.questions = generateSet(mode);
+    state.index = 0;
+    state.correctCount = 0;
+    state.input = '';
+    state.phase = 'input';
+    showScreen('quiz');
+    renderQuestion();
+  }
+  function renderQuestion() {
+    const q = state.questions[state.index];
+    document.getElementById('expr').textContent = `${q.a} ${q.symbol} ${q.b} =`;
+    document.getElementById('quiz-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
+    document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
+    document.getElementById('progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+    renderInput();
+    document.getElementById('feedback').textContent = '';
+    document.getElementById('feedback').className = 'feedback';
+    document.getElementById('answer-box').className = 'answer-box';
+    document.getElementById('keypad-input').classList.remove('hidden');
+    document.getElementById('keypad-next').classList.add('hidden');
+    state.phase = 'input';
+  }
+  function renderInput() {
+    const box = document.getElementById('answer-box');
+    if (state.input === '') {
+      box.innerHTML = '<span class="answer-placeholder">?</span>';
+    } else {
+      box.textContent = state.input;
+    }
+    document.getElementById('btn-submit').disabled = (state.input === '');
+  }
+  function pressKey(key) {
+    if (state.phase === 'feedback') {
+      if (key === 'next') nextQuestion();
+      return;
+    }
+    if (key === 'clear') {
+      state.input = '';
+      renderInput();
+      return;
+    }
+    if (key === 'submit') {
+      if (state.input === '') return;
+      submitAnswer();
+      return;
+    }
+    if (/^\d$/.test(key)) {
+      if (state.input.length >= 3) return;
+      if (state.input === '' && key === '0') { state.input = '0'; renderInput(); return; }
+      if (state.input === '0') { state.input = key; renderInput(); return; }
+      state.input += key;
+      renderInput();
+    }
+  }
+  function submitAnswer() {
+    const q = state.questions[state.index];
+    const user = parseInt(state.input, 10);
+    const isCorrect = user === q.ans;
+    if (isCorrect) state.correctCount++;
+    state.phase = 'feedback';
+
+    const box = document.getElementById('answer-box');
+    const fb = document.getElementById('feedback');
+    if (isCorrect) {
+      box.classList.add('correct');
+      fb.textContent = 'せいかい！';
+      fb.className = 'feedback correct';
+    } else {
+      box.classList.add('wrong');
+      fb.textContent = `ざんねん... こたえは ${q.ans}`;
+      fb.className = 'feedback wrong';
+    }
+    document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
+    document.getElementById('keypad-input').classList.add('hidden');
+    document.getElementById('keypad-next').classList.remove('hidden');
+  }
+  function nextQuestion() {
+    state.index++;
+    state.input = '';
+    if (state.index >= QUESTIONS_PER_SET) {
+      finishQuiz();
+    } else {
+      renderQuestion();
+    }
+  }
+  function finishQuiz() {
+    saveResult(state.mode, state.correctCount, QUESTIONS_PER_SET);
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('result-correct').textContent = state.correctCount;
+    document.getElementById('result-mode').textContent = MODES[state.mode].label;
+    const msg = document.getElementById('result-message');
+    if (state.correctCount === QUESTIONS_PER_SET) msg.textContent = '🏆 パーフェクト！';
+    else if (state.correctCount >= 8) msg.textContent = '👏 すごい！';
+    else if (state.correctCount >= 5) msg.textContent = '😊 その ちょうし！';
+    else msg.textContent = '💪 もういちど チャレンジ！';
+    showScreen('result');
+  }
+
+  // --- 記録 ---
+  function todayKey() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  function loadStats() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw);
+    } catch (e) {
+      return {};
+    }
+  }
+  function saveStats(stats) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+    } catch (e) { /* quota等は無視 */ }
+  }
+  function saveResult(mode, correct, total) {
+    const stats = loadStats();
+    const key = todayKey();
+    if (!stats[key]) stats[key] = { add: {c:0,t:0}, sub: {c:0,t:0}, mul: {c:0,t:0} };
+    stats[key][mode].c += correct;
+    stats[key][mode].t += total;
+    saveStats(stats);
+  }
+
+  // --- 統計画面レンダリング ---
+  function renderStats() {
+    const stats = loadStats();
+    const today = todayKey();
+
+    // 直近14日の日付リスト
+    const days = [];
+    const now = new Date();
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      days.push({ key: `${y}-${m}-${day}`, month: d.getMonth() + 1, day: d.getDate() });
+    }
+
+    let todayCorrect = 0, weekCorrect = 0, totalCorrect = 0;
+    Object.entries(stats).forEach(([k, v]) => {
+      const c = (v.add?.c || 0) + (v.sub?.c || 0) + (v.mul?.c || 0);
+      totalCorrect += c;
+      if (k === today) todayCorrect = c;
+    });
+    days.slice(-7).forEach(d => {
+      const v = stats[d.key];
+      if (v) weekCorrect += (v.add?.c || 0) + (v.sub?.c || 0) + (v.mul?.c || 0);
+    });
+
+    document.getElementById('stat-today').textContent = todayCorrect;
+    document.getElementById('stat-week').textContent = weekCorrect;
+    document.getElementById('stat-total').textContent = totalCorrect;
+
+    // 14日棒グラフ
+    const daily = days.map(d => {
+      const v = stats[d.key];
+      const c = v ? (v.add?.c || 0) + (v.sub?.c || 0) + (v.mul?.c || 0) : 0;
+      return { ...d, count: c };
+    });
+    renderBarChart('chart-total', daily, d => d.count, d => `${d.month}/${d.day}`);
+
+    // モード別（きょう）
+    const todayData = stats[today] || { add: {c:0}, sub: {c:0}, mul: {c:0} };
+    const modeData = [
+      { key: 'add', label: 'たし', count: todayData.add?.c || 0 },
+      { key: 'sub', label: 'ひき', count: todayData.sub?.c || 0 },
+      { key: 'mul', label: 'かけ', count: todayData.mul?.c || 0 },
+    ];
+    renderBarChart('chart-mode-today', modeData, d => d.count, d => d.label);
+  }
+  function renderBarChart(containerId, data, getValue, getLabel) {
+    const container = document.getElementById(containerId);
+    const max = Math.max(1, ...data.map(getValue));
+    if (data.every(d => getValue(d) === 0)) {
+      container.innerHTML = '<div class="no-data">まだ きろくが ないよ</div>';
+      return;
+    }
+    const bars = data.map(d => {
+      const v = getValue(d);
+      const h = (v / max) * 100;
+      return `<div class="bar-col">
+        <div class="bar-value">${v > 0 ? v : ''}</div>
+        <div class="bar ${v === 0 ? 'zero' : ''}" style="height: ${Math.max(v > 0 ? h : 0, v > 0 ? 4 : 0)}%"></div>
+      </div>`;
+    }).join('');
+    const labels = data.map(d => `<div class="lbl">${getLabel(d)}</div>`).join('');
+    container.innerHTML = `<div class="chart">${bars}</div><div class="chart-labels">${labels}</div>`;
+  }
+
+  // --- イベント配線 ---
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => startQuiz(btn.dataset.mode));
+  });
+  document.getElementById('link-stats').addEventListener('click', (e) => {
+    e.preventDefault();
+    showScreen('stats');
+  });
+  document.querySelectorAll('[data-goto]').forEach(el => {
+    el.addEventListener('click', () => {
+      const dest = el.dataset.goto;
+      if (dest === 'restart') startQuiz(state.mode);
+      else showScreen(dest);
+    });
+  });
+  document.querySelectorAll('.key').forEach(k => {
+    k.addEventListener('click', () => pressKey(k.dataset.key));
+  });
+  document.getElementById('btn-clear-data').addEventListener('click', () => {
+    if (confirm('きろくを ぜんぶ けしますか？')) {
+      localStorage.removeItem(STORAGE_KEY);
+      renderStats();
+    }
+  });
+
+  showScreen('menu');
+})();
+</script>
+</body>
+</html>
