@@ -87,6 +87,53 @@
   .mode-btn[data-mode="sub"] { border-color: #ffb74d; }
   .mode-btn[data-mode="mul"] { border-color: #81c784; }
 
+  /* --- かけざん サブメニュー --- */
+  .submenu-title {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    margin: 4px 0 12px;
+  }
+  .row-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .row-btn {
+    background: var(--panel);
+    border: 2px solid #81c784;
+    border-radius: 14px;
+    padding: 18px 0;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+  }
+  .row-btn:active { transform: scale(0.96); }
+  .random-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .random-btn {
+    background: var(--panel);
+    border: 2px solid #ba68c8;
+    border-radius: 14px;
+    padding: 16px 18px;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .random-btn:active { transform: scale(0.98); }
+  .random-btn .hint { font-size: 13px; color: var(--muted); font-weight: normal; }
+
   .link-row {
     margin-top: 20px;
     text-align: center;
@@ -126,6 +173,12 @@
     height: 100%;
     background: var(--primary);
     transition: width 0.2s;
+  }
+  .submode-label {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 8px 0 -4px;
   }
 
   .question {
@@ -344,6 +397,38 @@
     </div>
   </section>
 
+  <!-- かけざん サブメニュー -->
+  <section id="screen-mul-menu" class="screen hidden">
+    <div class="quiz-header">
+      <button class="back-btn" data-goto="menu">‹ もどる</button>
+      <span>かけざん</span>
+      <span></span>
+    </div>
+    <div class="submenu-title">どの れんしゅうを する？</div>
+    <div class="row-grid">
+      <button class="row-btn" data-sub="row-1">1の だん</button>
+      <button class="row-btn" data-sub="row-2">2の だん</button>
+      <button class="row-btn" data-sub="row-3">3の だん</button>
+      <button class="row-btn" data-sub="row-4">4の だん</button>
+      <button class="row-btn" data-sub="row-5">5の だん</button>
+      <button class="row-btn" data-sub="row-6">6の だん</button>
+      <button class="row-btn" data-sub="row-7">7の だん</button>
+      <button class="row-btn" data-sub="row-8">8の だん</button>
+      <button class="row-btn" data-sub="row-9">9の だん</button>
+    </div>
+    <div class="random-list">
+      <button class="random-btn" data-sub="r1">
+        <span>ランダム 1</span><span class="hint">1〜5 の はんい</span>
+      </button>
+      <button class="random-btn" data-sub="r2">
+        <span>ランダム 2</span><span class="hint">だんを 1つ ランダム</span>
+      </button>
+      <button class="random-btn" data-sub="r3">
+        <span>ランダム 3</span><span class="hint">1〜9 の はんい</span>
+      </button>
+    </div>
+  </section>
+
   <!-- クイズ画面 -->
   <section id="screen-quiz" class="screen hidden">
     <div class="quiz-header">
@@ -352,6 +437,7 @@
       <span id="quiz-score-text">〇 0</span>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div id="quiz-submode-label" class="submode-label hidden"></div>
 
     <div class="question">
       <div class="expr" id="expr"></div>
@@ -446,11 +532,22 @@
 
   const state = {
     mode: null,
+    submode: null,
+    submodeLabel: '',
     questions: [],
     index: 0,
     correctCount: 0,
     input: '',
     phase: 'input', // 'input' | 'feedback'
+  };
+
+  const MUL_SUBMODES = {
+    'row-1': '1の だん', 'row-2': '2の だん', 'row-3': '3の だん',
+    'row-4': '4の だん', 'row-5': '5の だん', 'row-6': '6の だん',
+    'row-7': '7の だん', 'row-8': '8の だん', 'row-9': '9の だん',
+    'r1': 'ランダム 1 (1〜5)',
+    'r2': 'ランダム 2 (だんしぼり)',
+    'r3': 'ランダム 3 (1〜9)',
   };
 
   // --- 問題生成 ---
@@ -480,10 +577,45 @@
     }
     return { a, b, ans, symbol };
   }
-  function generateSet(mode) {
+  function generateSet(mode, submode) {
+    if (mode === 'mul' && submode) {
+      return generateMulSet(submode);
+    }
     const set = [];
     for (let i = 0; i < QUESTIONS_PER_SET; i++) {
       set.push(generateQuestion(mode));
+    }
+    return set;
+  }
+  function mulQ(a, b) {
+    return { a, b, ans: a * b, symbol: '×' };
+  }
+  function generateMulSet(submode) {
+    const set = [];
+    if (submode.startsWith('row-')) {
+      const row = parseInt(submode.slice(4), 10);
+      for (let i = 0; i < QUESTIONS_PER_SET; i++) {
+        const b = (i % 9) + 1; // 1,2,...,9,1
+        set.push(mulQ(row, b));
+      }
+      return set;
+    }
+    if (submode === 'r1') {
+      for (let i = 0; i < QUESTIONS_PER_SET; i++) {
+        set.push(mulQ(randInt(1, 5), randInt(1, 5)));
+      }
+      return set;
+    }
+    if (submode === 'r2') {
+      const row = randInt(1, 9);
+      for (let i = 0; i < QUESTIONS_PER_SET; i++) {
+        set.push(mulQ(row, randInt(1, 9)));
+      }
+      return set;
+    }
+    // r3
+    for (let i = 0; i < QUESTIONS_PER_SET; i++) {
+      set.push(mulQ(randInt(1, 9), randInt(1, 9)));
     }
     return set;
   }
@@ -491,6 +623,7 @@
   // --- 画面切替 ---
   const screens = {
     menu: document.getElementById('screen-menu'),
+    mulMenu: document.getElementById('screen-mul-menu'),
     quiz: document.getElementById('screen-quiz'),
     result: document.getElementById('screen-result'),
     stats: document.getElementById('screen-stats'),
@@ -503,9 +636,11 @@
   }
 
   // --- クイズ ---
-  function startQuiz(mode) {
+  function startQuiz(mode, submode) {
     state.mode = mode;
-    state.questions = generateSet(mode);
+    state.submode = submode || null;
+    state.submodeLabel = (mode === 'mul' && submode) ? (MUL_SUBMODES[submode] || '') : '';
+    state.questions = generateSet(mode, state.submode);
     state.index = 0;
     state.correctCount = 0;
     state.input = '';
@@ -519,6 +654,18 @@
     document.getElementById('quiz-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
     document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
     document.getElementById('progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+    const subEl = document.getElementById('quiz-submode-label');
+    if (state.submodeLabel) {
+      // ランダム2は選ばれた段を表示、それ以外はそのままのラベル
+      if (state.submode === 'r2' && state.questions.length) {
+        subEl.textContent = `ランダム 2 ／ ${state.questions[0].a}の だん`;
+      } else {
+        subEl.textContent = state.submodeLabel;
+      }
+      subEl.classList.remove('hidden');
+    } else {
+      subEl.classList.add('hidden');
+    }
     renderInput();
     document.getElementById('feedback').textContent = '';
     document.getElementById('feedback').className = 'feedback';
@@ -594,7 +741,8 @@
     saveResult(state.mode, state.correctCount, QUESTIONS_PER_SET);
     document.getElementById('progress-fill').style.width = '100%';
     document.getElementById('result-correct').textContent = state.correctCount;
-    document.getElementById('result-mode').textContent = MODES[state.mode].label;
+    const label = MODES[state.mode].label + (state.submodeLabel ? ` ／ ${state.submodeLabel}` : '');
+    document.getElementById('result-mode').textContent = label;
     const msg = document.getElementById('result-message');
     if (state.correctCount === QUESTIONS_PER_SET) msg.textContent = '🏆 パーフェクト！';
     else if (state.correctCount >= 8) msg.textContent = '👏 すごい！';
@@ -704,7 +852,14 @@
 
   // --- イベント配線 ---
   document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => startQuiz(btn.dataset.mode));
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      if (mode === 'mul') showScreen('mulMenu');
+      else startQuiz(mode);
+    });
+  });
+  document.querySelectorAll('[data-sub]').forEach(btn => {
+    btn.addEventListener('click', () => startQuiz('mul', btn.dataset.sub));
   });
   document.getElementById('link-stats').addEventListener('click', (e) => {
     e.preventDefault();
@@ -713,7 +868,7 @@
   document.querySelectorAll('[data-goto]').forEach(el => {
     el.addEventListener('click', () => {
       const dest = el.dataset.goto;
-      if (dest === 'restart') startQuiz(state.mode);
+      if (dest === 'restart') startQuiz(state.mode, state.submode);
       else showScreen(dest);
     });
   });
