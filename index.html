@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="さんすうドリル">
+<meta name="apple-mobile-web-app-title" content="フラッシュドリル">
 <meta name="theme-color" content="#1e88e5">
-<title>さんすうフラッシュドリル</title>
+<title>フラッシュドリル</title>
 <style>
   :root {
     --bg: #f5f7fb;
@@ -61,11 +61,18 @@
   .hidden { display: none !important; }
 
   /* --- モード選択 --- */
+  .category-heading {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--muted);
+    margin: 8px 4px 4px;
+    letter-spacing: 1px;
+  }
   .mode-buttons {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-top: 8px;
+    margin-top: 4px;
   }
   .mode-btn {
     background: var(--panel);
@@ -376,11 +383,12 @@
 </head>
 <body>
 <div id="app">
-  <h1>さんすうフラッシュドリル</h1>
+  <h1>フラッシュドリル</h1>
 
   <!-- モード選択 -->
   <section id="screen-menu" class="screen">
-    <div class="subtitle">モードを えらんでね</div>
+    <div class="subtitle">もんだいを えらんでね</div>
+    <div class="category-heading">さんすう</div>
     <div class="mode-buttons">
       <button class="mode-btn" data-mode="add">
         <span>たしざん</span><span class="emoji">➕</span>
