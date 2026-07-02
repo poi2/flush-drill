@@ -3,6 +3,7 @@ import { primaryReading } from './parse.mjs';
 
 /**
  * @typedef {import('./parse.mjs').KanjiEntry} KanjiEntry
+ * @typedef {import('./parse.mjs').Reading} Reading
  * @typedef {import('./parse.mjs').Dictionary} Dictionary
  */
 
@@ -13,7 +14,7 @@ import { primaryReading } from './parse.mjs';
  * @property {string} question
  * @property {string[]} choices
  * @property {number} answerIndex
- * @property {string} kanji  target kanji character (for display / stats)
+ * @property {string} kanji
  */
 
 /**
@@ -21,7 +22,7 @@ import { primaryReading } from './parse.mjs';
  * @property {"sentence"} type
  * @property {"sentence-reading"} subtype
  * @property {string} sentence
- * @property {string} target
+ * @property {string} target    displayed word (kanji + okurigana when the sentence contains that form)
  * @property {string[]} choices
  * @property {number} answerIndex
  * @property {string} kanji
@@ -29,14 +30,26 @@ import { primaryReading } from './parse.mjs';
 
 const CHOICE_COUNT = 4;
 
+/** Full reading form (stem + okurigana). */
+function readingForm(r) {
+  return r.value + (r.okurigana ?? '');
+}
+
+/** Kanji form (kanji + okurigana). */
+function kanjiForm(kanji, r) {
+  return kanji + (r.okurigana ?? '');
+}
+
 /**
- * Collect n distinct distractor readings from an entry's `similar` characters.
- * Falls back to random dictionary entries if similar cannot supply enough.
- * Only primary readings are used, matching the 10-級 constraint.
+ * Collect n distinct distractor reading forms. Each distractor is the primary
+ * reading of a `similar` kanji, suffixed with the correct reading's okurigana
+ * (so a "正しい" question yields "はやしい / たしい / ..." pseudo-forms — parallel
+ * in structure, wrong on kanji).
  */
-function distractorReadings(entry, dictionary, n, rng) {
-  const correct = primaryReading(entry);
-  const seen = new Set(correct ? [correct.value] : []);
+function distractorReadingForms(entry, dictionary, correct, n, rng) {
+  const okuri = correct.okurigana ?? '';
+  const correctForm = readingForm(correct);
+  const seen = new Set([correctForm]);
   const result = [];
 
   const similarEntries = entry.similar
@@ -45,9 +58,11 @@ function distractorReadings(entry, dictionary, n, rng) {
   for (const s of shuffle(similarEntries, rng)) {
     if (result.length >= n) break;
     const r = primaryReading(s);
-    if (!r || seen.has(r.value)) continue;
-    seen.add(r.value);
-    result.push(r.value);
+    if (!r) continue;
+    const form = r.value + okuri;
+    if (seen.has(form)) continue;
+    seen.add(form);
+    result.push(form);
   }
 
   if (result.length < n) {
@@ -55,33 +70,40 @@ function distractorReadings(entry, dictionary, n, rng) {
     for (const s of shuffle(fallback, rng)) {
       if (result.length >= n) break;
       const r = primaryReading(s);
-      if (!r || seen.has(r.value)) continue;
-      seen.add(r.value);
-      result.push(r.value);
+      if (!r) continue;
+      const form = r.value + okuri;
+      if (seen.has(form)) continue;
+      seen.add(form);
+      result.push(form);
     }
   }
 
   return result;
 }
 
-/** Collect n distinct distractor kanji characters. */
-function distractorKanji(entry, dictionary, n, rng) {
-  const seen = new Set([entry.kanji]);
+/** Collect n distinct distractor kanji forms (similar + same okurigana). */
+function distractorKanjiForms(entry, dictionary, correct, n, rng) {
+  const okuri = correct.okurigana ?? '';
+  const correctForm = kanjiForm(entry.kanji, correct);
+  const seen = new Set([correctForm]);
   const result = [];
 
   for (const c of shuffle(entry.similar, rng)) {
     if (result.length >= n) break;
-    if (seen.has(c)) continue;
-    seen.add(c);
-    result.push(c);
+    const form = c + okuri;
+    if (seen.has(form)) continue;
+    seen.add(form);
+    result.push(form);
   }
 
   if (result.length < n) {
-    const fallback = dictionary.entries.filter((e) => !seen.has(e.kanji));
+    const fallback = dictionary.entries.filter((e) => e.kanji !== entry.kanji);
     for (const s of shuffle(fallback, rng)) {
       if (result.length >= n) break;
-      seen.add(s.kanji);
-      result.push(s.kanji);
+      const form = s.kanji + okuri;
+      if (seen.has(form)) continue;
+      seen.add(form);
+      result.push(form);
     }
   }
 
@@ -92,14 +114,15 @@ function distractorKanji(entry, dictionary, n, rng) {
 export function generateKanjiToReading(entry, dictionary, rng = Math.random) {
   const correct = primaryReading(entry);
   if (!correct) throw new Error(`no primary reading for ${entry.kanji}`);
-  const distractors = distractorReadings(entry, dictionary, CHOICE_COUNT - 1, rng);
-  const choices = shuffle([correct.value, ...distractors], rng);
+  const correctForm = readingForm(correct);
+  const distractors = distractorReadingForms(entry, dictionary, correct, CHOICE_COUNT - 1, rng);
+  const choices = shuffle([correctForm, ...distractors], rng);
   return {
     type: 'choice',
     subtype: 'kanji-to-reading',
-    question: entry.kanji,
+    question: kanjiForm(entry.kanji, correct),
     choices,
-    answerIndex: choices.indexOf(correct.value),
+    answerIndex: choices.indexOf(correctForm),
     kanji: entry.kanji,
   };
 }
@@ -108,34 +131,50 @@ export function generateKanjiToReading(entry, dictionary, rng = Math.random) {
 export function generateReadingToKanji(entry, dictionary, rng = Math.random) {
   const correct = primaryReading(entry);
   if (!correct) throw new Error(`no primary reading for ${entry.kanji}`);
-  const distractors = distractorKanji(entry, dictionary, CHOICE_COUNT - 1, rng);
-  const choices = shuffle([entry.kanji, ...distractors], rng);
+  const correctForm = kanjiForm(entry.kanji, correct);
+  const distractors = distractorKanjiForms(entry, dictionary, correct, CHOICE_COUNT - 1, rng);
+  const choices = shuffle([correctForm, ...distractors], rng);
   return {
     type: 'choice',
     subtype: 'reading-to-kanji',
-    question: correct.value,
+    question: readingForm(correct),
     choices,
-    answerIndex: choices.indexOf(entry.kanji),
+    answerIndex: choices.indexOf(correctForm),
     kanji: entry.kanji,
   };
 }
 
-/** 文中の漢字の読み */
+/**
+ * 文中の漢字の読み
+ *
+ * If the sentence contains `target + okurigana`, treat the whole word as the
+ * target (e.g. "正しい") and ask about that form. Otherwise fall back to just
+ * the kanji character with its bare stem reading — the okurigana of the
+ * primary reading may not match every example (e.g. "正しく書く。" uses a
+ * different suffix than "しい").
+ */
 export function generateSentenceReading(entry, dictionary, rng = Math.random) {
   if (entry.examples.length === 0) throw new Error(`no examples for ${entry.kanji}`);
   const example = pickRandom(entry.examples, rng);
   const targetEntry = dictionary.byChar.get(example.target) ?? entry;
-  const correct = primaryReading(targetEntry);
-  if (!correct) throw new Error(`no primary reading for ${example.target}`);
-  const distractors = distractorReadings(targetEntry, dictionary, CHOICE_COUNT - 1, rng);
-  const choices = shuffle([correct.value, ...distractors], rng);
+  const primary = primaryReading(targetEntry);
+  if (!primary) throw new Error(`no primary reading for ${example.target}`);
+
+  const wordForm = example.target + (primary.okurigana ?? '');
+  const useWordForm = !!primary.okurigana && example.text.includes(wordForm);
+  const readingForDrill = useWordForm ? primary : { ...primary, okurigana: undefined };
+
+  const correctText = readingForm(readingForDrill);
+  const distractors = distractorReadingForms(targetEntry, dictionary, readingForDrill, CHOICE_COUNT - 1, rng);
+  const choices = shuffle([correctText, ...distractors], rng);
+
   return {
     type: 'sentence',
     subtype: 'sentence-reading',
     sentence: example.text,
-    target: example.target,
+    target: useWordForm ? wordForm : example.target,
     choices,
-    answerIndex: choices.indexOf(correct.value),
+    answerIndex: choices.indexOf(correctText),
     kanji: entry.kanji,
   };
 }

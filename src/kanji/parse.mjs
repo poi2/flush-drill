@@ -1,6 +1,7 @@
 /**
  * @typedef {Object} Reading
- * @property {string} value
+ * @property {string} value    stem reading (e.g. "ただ" for 正しい)
+ * @property {string} [okurigana]  hiragana suffix that combines with the stem
  * @property {"kun" | "on"} type
  * @property {boolean} primary
  */

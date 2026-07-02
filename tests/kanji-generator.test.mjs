@@ -70,7 +70,7 @@ test('generateSentenceReading picks an example and asks about its target', async
 
 test('distractors are drawn from similar entries when possible', async () => {
   const dict = await loadDictionary();
-  const entry = dict.byChar.get('山');
+  const entry = dict.byChar.get('山'); // no okurigana
   const similarReadings = new Set(
     entry.similar
       .map((c) => primaryReading(dict.byChar.get(c)))
@@ -92,6 +92,79 @@ test('distractors are drawn from similar entries when possible', async () => {
   for (const d of distractors2) {
     assert.ok(similarKanji.has(d), `distractor ${d} should come from similar kanji`);
   }
+});
+
+test('okurigana: kanji-to-reading question and choices carry the okurigana', async () => {
+  const dict = await loadDictionary();
+  const entry = dict.byChar.get('正');
+  const p = generateKanjiToReading(entry, dict, makeRng(1));
+  assert.equal(p.question, '正しい');
+  assert.equal(p.choices[p.answerIndex], 'ただしい');
+  for (const c of p.choices) {
+    assert.ok(c.endsWith('しい'), `expected all choices to end with しい, got ${c}`);
+  }
+});
+
+test('okurigana: reading-to-kanji question and choices carry the okurigana', async () => {
+  const dict = await loadDictionary();
+  const entry = dict.byChar.get('正');
+  const p = generateReadingToKanji(entry, dict, makeRng(1));
+  assert.equal(p.question, 'ただしい');
+  assert.equal(p.choices[p.answerIndex], '正しい');
+  for (const c of p.choices) {
+    assert.ok(c.endsWith('しい'), `expected all choices to end with しい, got ${c}`);
+  }
+});
+
+test('okurigana: reading-to-kanji distractors are similar kanji + same okurigana', async () => {
+  const dict = await loadDictionary();
+  const entry = dict.byChar.get('正');
+  const p = generateReadingToKanji(entry, dict, makeRng(1));
+  const distractors = p.choices.filter((_, i) => i !== p.answerIndex);
+  const expectedForms = new Set(entry.similar.map((c) => c + 'しい'));
+  for (const d of distractors) {
+    assert.ok(expectedForms.has(d), `distractor ${d} not in ${[...expectedForms].join(',')}`);
+  }
+});
+
+test('okurigana: no-okurigana entries keep the plain form', async () => {
+  const dict = await loadDictionary();
+  const entry = dict.byChar.get('山');
+  const p1 = generateKanjiToReading(entry, dict, makeRng(1));
+  assert.equal(p1.question, '山');
+  assert.equal(p1.choices[p1.answerIndex], 'やま');
+  const p2 = generateReadingToKanji(entry, dict, makeRng(1));
+  assert.equal(p2.question, 'やま');
+  assert.equal(p2.choices[p2.answerIndex], '山');
+});
+
+test('sentence-reading: uses word form when the sentence contains it', async () => {
+  const dict = await loadDictionary();
+  const entry = dict.byChar.get('正');
+  // seed until we pick the "正しい答え。" example
+  for (let seed = 0; seed < 50; seed++) {
+    const p = generateSentenceReading(entry, dict, makeRng(seed));
+    if (p.sentence === '正しい答え。') {
+      assert.equal(p.target, '正しい');
+      assert.equal(p.choices[p.answerIndex], 'ただしい');
+      return;
+    }
+  }
+  assert.fail('did not find the 正しい example within 50 seeds');
+});
+
+test('sentence-reading: falls back to bare kanji when sentence does not contain the primary word form', async () => {
+  const dict = await loadDictionary();
+  const entry = dict.byChar.get('正');
+  for (let seed = 0; seed < 50; seed++) {
+    const p = generateSentenceReading(entry, dict, makeRng(seed));
+    if (p.sentence === '正しく書く。') {
+      assert.equal(p.target, '正');
+      assert.equal(p.choices[p.answerIndex], 'ただ');
+      return;
+    }
+  }
+  assert.fail('did not find the 正しく example within 50 seeds');
 });
 
 test('primary=false readings are never used as correct or distractor (10級 constraint)', async () => {
