@@ -93,6 +93,84 @@
   .mode-btn[data-mode="add"] { border-color: #64b5f6; }
   .mode-btn[data-mode="sub"] { border-color: #ffb74d; }
   .mode-btn[data-mode="mul"] { border-color: #81c784; }
+  .mode-btn[data-mode="kanji"] { border-color: #e57373; }
+
+  /* --- かんじ サブメニュー --- */
+  .kanji-mode-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .kanji-mode-btn {
+    background: var(--panel);
+    border: 2px solid #e57373;
+    border-radius: 14px;
+    padding: 16px 18px;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .kanji-mode-btn:active { transform: scale(0.98); }
+  .kanji-mode-btn .hint { font-size: 13px; color: var(--muted); font-weight: normal; }
+
+  /* --- かんじ クイズ --- */
+  .kanji-prompt {
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 8px;
+  }
+  .kanji-prompt.kind-k2r .kanji-char { font-size: 96px; font-weight: bold; line-height: 1; }
+  .kanji-prompt.kind-r2k .kanji-reading { font-size: 44px; font-weight: bold; letter-spacing: 2px; }
+  .kanji-prompt.kind-sent .kanji-sentence {
+    font-size: 26px;
+    font-weight: bold;
+    line-height: 1.4;
+    text-align: center;
+  }
+  .kanji-prompt.kind-sent .kanji-target-mark {
+    color: var(--primary);
+    text-decoration: underline;
+    text-decoration-thickness: 3px;
+    text-underline-offset: 4px;
+  }
+  .kanji-prompt.kind-sent .kanji-sub-question {
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .choices {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .choice-btn {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 8px;
+    font-size: 26px;
+    font-weight: bold;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    min-height: 72px;
+  }
+  .choice-btn:active { transform: scale(0.97); }
+  .choice-btn:disabled { cursor: default; }
+  .choice-btn.correct { background: #e8f5e9; border-color: var(--correct); color: var(--correct); }
+  .choice-btn.wrong { background: #ffebee; border-color: var(--wrong); color: var(--wrong); }
+  .choice-btn.dim { opacity: 0.5; }
 
   /* --- かけざん サブメニュー --- */
   .submenu-title {
@@ -400,6 +478,12 @@
         <span>かけざん</span><span class="emoji">✖️</span>
       </button>
     </div>
+    <div class="category-heading">こくご</div>
+    <div class="mode-buttons">
+      <button class="mode-btn" data-mode="kanji">
+        <span>かんじ（10きゅう）</span><span class="emoji">🈶</span>
+      </button>
+    </div>
     <div class="link-row">
       <a href="#" id="link-stats">きろくを みる ›</a>
     </div>
@@ -434,6 +518,50 @@
       <button class="random-btn" data-sub="r3">
         <span>ランダム 3</span><span class="hint">1〜9 の はんい</span>
       </button>
+    </div>
+  </section>
+
+  <!-- かんじ サブメニュー -->
+  <section id="screen-kanji-menu" class="screen hidden">
+    <div class="quiz-header">
+      <button class="back-btn" data-goto="menu">‹ もどる</button>
+      <span>かんじ（10きゅう）</span>
+      <span></span>
+    </div>
+    <div class="submenu-title">どの れんしゅうを する？</div>
+    <div class="kanji-mode-list">
+      <button class="kanji-mode-btn" data-kanji-mode="k2r">
+        <span>かんじ ➡ よみ</span><span class="hint">かんじを 見て よみを えらぶ</span>
+      </button>
+      <button class="kanji-mode-btn" data-kanji-mode="r2k">
+        <span>よみ ➡ かんじ</span><span class="hint">よみを 見て かんじを えらぶ</span>
+      </button>
+      <button class="kanji-mode-btn" data-kanji-mode="ksent">
+        <span>ぶんの なかの よみ</span><span class="hint">ぶんに 出る かんじの よみ</span>
+      </button>
+    </div>
+    <div class="submenu-title" id="kanji-loading-hint" style="margin-top:16px;">よみこみちゅう...</div>
+  </section>
+
+  <!-- かんじ クイズ画面 -->
+  <section id="screen-kanji-quiz" class="screen hidden">
+    <div class="quiz-header">
+      <button class="back-btn" data-goto="kanjiMenu">‹ もどる</button>
+      <span id="kanji-progress-text">1 / 10</span>
+      <span id="kanji-score-text">〇 0</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="kanji-progress-fill"></div></div>
+    <div id="kanji-submode-label" class="submode-label"></div>
+
+    <div class="question">
+      <div id="kanji-prompt" class="kanji-prompt"></div>
+      <div class="feedback" id="kanji-feedback"></div>
+    </div>
+
+    <div class="choices" id="kanji-choices"></div>
+
+    <div class="keypad hidden" id="kanji-keypad-next">
+      <button class="key next" data-kanji-key="next">つぎへ</button>
     </div>
   </section>
 
@@ -526,19 +654,28 @@
   </section>
 </div>
 
-<script>
-(() => {
-  'use strict';
+<script type="module">
+  import { parseJsonl, buildDictionary } from './src/kanji/parse.mjs';
+  import {
+    generateKanjiToReading,
+    generateReadingToKanji,
+    generateSentenceReading,
+  } from './src/kanji/generator.mjs';
+  import { shuffle } from './src/kanji/random.mjs';
 
   const MODES = {
     add: { label: 'たしざん', symbol: '＋' },
     sub: { label: 'ひきざん', symbol: '－' },
     mul: { label: 'かけざん', symbol: '×' },
+    k2r: { label: 'かんじ ➡ よみ' },
+    r2k: { label: 'よみ ➡ かんじ' },
+    ksent: { label: 'ぶんの なかの よみ' },
   };
   const QUESTIONS_PER_SET = 10;
   const STORAGE_KEY = 'flushdrill_stats_v1';
 
   const state = {
+    category: null, // 'arith' | 'kanji'
     mode: null,
     submode: null,
     submodeLabel: '',
@@ -632,7 +769,9 @@
   const screens = {
     menu: document.getElementById('screen-menu'),
     mulMenu: document.getElementById('screen-mul-menu'),
+    kanjiMenu: document.getElementById('screen-kanji-menu'),
     quiz: document.getElementById('screen-quiz'),
+    kanjiQuiz: document.getElementById('screen-kanji-quiz'),
     result: document.getElementById('screen-result'),
     stats: document.getElementById('screen-stats'),
   };
@@ -645,6 +784,7 @@
 
   // --- クイズ ---
   function startQuiz(mode, submode) {
+    state.category = 'arith';
     state.mode = mode;
     state.submode = submode || null;
     state.submodeLabel = (mode === 'mul' && submode) ? (MUL_SUBMODES[submode] || '') : '';
@@ -747,16 +887,149 @@
   }
   function finishQuiz() {
     saveResult(state.mode, state.correctCount, QUESTIONS_PER_SET);
-    document.getElementById('progress-fill').style.width = '100%';
+    const fillId = state.category === 'kanji' ? 'kanji-progress-fill' : 'progress-fill';
+    document.getElementById(fillId).style.width = '100%';
     document.getElementById('result-correct').textContent = state.correctCount;
-    const label = MODES[state.mode].label + (state.submodeLabel ? ` ／ ${state.submodeLabel}` : '');
-    document.getElementById('result-mode').textContent = label;
+    const submode = (state.category !== 'kanji' && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
+    document.getElementById('result-mode').textContent = MODES[state.mode].label + submode;
     const msg = document.getElementById('result-message');
     if (state.correctCount === QUESTIONS_PER_SET) msg.textContent = '🏆 パーフェクト！';
     else if (state.correctCount >= 8) msg.textContent = '👏 すごい！';
     else if (state.correctCount >= 5) msg.textContent = '😊 その ちょうし！';
     else msg.textContent = '💪 もういちど チャレンジ！';
     showScreen('result');
+  }
+
+  // --- かんじクイズ ---
+  let kanjiDict = null;
+  const kanjiDictPromise = (async () => {
+    try {
+      const res = await fetch('./kanji.jsonl');
+      if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+      kanjiDict = buildDictionary(parseJsonl(await res.text()));
+    } catch (e) {
+      console.error('kanji dict load failed', e);
+    } finally {
+      const hint = document.getElementById('kanji-loading-hint');
+      if (hint) {
+        hint.textContent = kanjiDict ? '' : 'かんじデータの よみこみに 失敗しました';
+        if (kanjiDict) hint.classList.add('hidden');
+      }
+    }
+  })();
+
+  const KANJI_GENERATORS = {
+    k2r: generateKanjiToReading,
+    r2k: generateReadingToKanji,
+    ksent: generateSentenceReading,
+  };
+
+  function generateKanjiSet(mode, dict) {
+    const entries = shuffle(dict.entries).slice(0, QUESTIONS_PER_SET);
+    return entries.map(e => KANJI_GENERATORS[mode](e, dict));
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
+  async function startKanjiQuiz(mode) {
+    if (!kanjiDict) await kanjiDictPromise;
+    if (!kanjiDict) {
+      alert('かんじデータの よみこみに 失敗しました');
+      return;
+    }
+    state.category = 'kanji';
+    state.mode = mode;
+    state.submode = null;
+    state.submodeLabel = MODES[mode].label;
+    state.questions = generateKanjiSet(mode, kanjiDict);
+    state.index = 0;
+    state.correctCount = 0;
+    state.phase = 'input';
+    showScreen('kanjiQuiz');
+    renderKanjiQuestion();
+  }
+
+  function renderKanjiQuestion() {
+    const q = state.questions[state.index];
+    const prompt = document.getElementById('kanji-prompt');
+    prompt.className = 'kanji-prompt';
+    if (q.subtype === 'kanji-to-reading') {
+      prompt.classList.add('kind-k2r');
+      prompt.innerHTML = `<div class="kanji-char">${escapeHtml(q.question)}</div>`;
+    } else if (q.subtype === 'reading-to-kanji') {
+      prompt.classList.add('kind-r2k');
+      prompt.innerHTML = `<div class="kanji-reading">${escapeHtml(q.question)}</div>`;
+    } else {
+      prompt.classList.add('kind-sent');
+      const target = escapeHtml(q.target);
+      const marked = escapeHtml(q.sentence).split(target).join(
+        `<span class="kanji-target-mark">${target}</span>`,
+      );
+      prompt.innerHTML =
+        `<div class="kanji-sentence">${marked}</div>` +
+        `<div class="kanji-sub-question">「${target}」の よみは？</div>`;
+    }
+
+    document.getElementById('kanji-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
+    document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
+    document.getElementById('kanji-progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+    document.getElementById('kanji-submode-label').textContent = state.submodeLabel;
+
+    const fb = document.getElementById('kanji-feedback');
+    fb.textContent = '';
+    fb.className = 'feedback';
+
+    const choicesEl = document.getElementById('kanji-choices');
+    choicesEl.innerHTML = '';
+    q.choices.forEach((choice, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.dataset.choiceIndex = String(i);
+      btn.textContent = choice;
+      choicesEl.appendChild(btn);
+    });
+
+    document.getElementById('kanji-keypad-next').classList.add('hidden');
+    state.phase = 'input';
+  }
+
+  function handleKanjiChoice(index) {
+    if (state.phase !== 'input') return;
+    const q = state.questions[state.index];
+    const isCorrect = index === q.answerIndex;
+    if (isCorrect) state.correctCount++;
+    state.phase = 'feedback';
+
+    document.querySelectorAll('#kanji-choices .choice-btn').forEach((btn, i) => {
+      btn.disabled = true;
+      if (i === q.answerIndex) btn.classList.add('correct');
+      else if (i === index) btn.classList.add('wrong');
+      else btn.classList.add('dim');
+    });
+
+    const fb = document.getElementById('kanji-feedback');
+    if (isCorrect) {
+      fb.textContent = 'せいかい！';
+      fb.className = 'feedback correct';
+    } else {
+      fb.textContent = `こたえは「${q.choices[q.answerIndex]}」`;
+      fb.className = 'feedback wrong';
+    }
+    document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
+    document.getElementById('kanji-keypad-next').classList.remove('hidden');
+  }
+
+  function nextKanjiQuestion() {
+    state.index++;
+    if (state.index >= QUESTIONS_PER_SET) {
+      finishQuiz();
+    } else {
+      renderKanjiQuestion();
+    }
   }
 
   // --- 記録 ---
@@ -784,7 +1057,8 @@
   function saveResult(mode, correct, total) {
     const stats = loadStats();
     const key = todayKey();
-    if (!stats[key]) stats[key] = { add: {c:0,t:0}, sub: {c:0,t:0}, mul: {c:0,t:0} };
+    if (!stats[key]) stats[key] = {};
+    if (!stats[key][mode]) stats[key][mode] = { c: 0, t: 0 };
     stats[key][mode].c += correct;
     stats[key][mode].t += total;
     saveStats(stats);
@@ -807,15 +1081,15 @@
       days.push({ key: `${y}-${m}-${day}`, month: d.getMonth() + 1, day: d.getDate() });
     }
 
+    const sumDay = (v) => Object.values(v || {}).reduce((s, m) => s + (m?.c || 0), 0);
     let todayCorrect = 0, weekCorrect = 0, totalCorrect = 0;
     Object.entries(stats).forEach(([k, v]) => {
-      const c = (v.add?.c || 0) + (v.sub?.c || 0) + (v.mul?.c || 0);
+      const c = sumDay(v);
       totalCorrect += c;
       if (k === today) todayCorrect = c;
     });
     days.slice(-7).forEach(d => {
-      const v = stats[d.key];
-      if (v) weekCorrect += (v.add?.c || 0) + (v.sub?.c || 0) + (v.mul?.c || 0);
+      weekCorrect += sumDay(stats[d.key]);
     });
 
     document.getElementById('stat-today').textContent = todayCorrect;
@@ -823,19 +1097,18 @@
     document.getElementById('stat-total').textContent = totalCorrect;
 
     // 14日棒グラフ
-    const daily = days.map(d => {
-      const v = stats[d.key];
-      const c = v ? (v.add?.c || 0) + (v.sub?.c || 0) + (v.mul?.c || 0) : 0;
-      return { ...d, count: c };
-    });
+    const daily = days.map(d => ({ ...d, count: sumDay(stats[d.key]) }));
     renderBarChart('chart-total', daily, d => d.count, d => `${d.month}/${d.day}`);
 
     // モード別（きょう）
-    const todayData = stats[today] || { add: {c:0}, sub: {c:0}, mul: {c:0} };
+    const todayData = stats[today] || {};
     const modeData = [
       { key: 'add', label: 'たし', count: todayData.add?.c || 0 },
       { key: 'sub', label: 'ひき', count: todayData.sub?.c || 0 },
       { key: 'mul', label: 'かけ', count: todayData.mul?.c || 0 },
+      { key: 'k2r', label: '漢→読', count: todayData.k2r?.c || 0 },
+      { key: 'r2k', label: '読→漢', count: todayData.r2k?.c || 0 },
+      { key: 'ksent', label: '文中', count: todayData.ksent?.c || 0 },
     ];
     renderBarChart('chart-mode-today', modeData, d => d.count, d => d.label);
   }
@@ -863,11 +1136,25 @@
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
       if (mode === 'mul') showScreen('mulMenu');
+      else if (mode === 'kanji') showScreen('kanjiMenu');
       else startQuiz(mode);
     });
   });
   document.querySelectorAll('[data-sub]').forEach(btn => {
     btn.addEventListener('click', () => startQuiz('mul', btn.dataset.sub));
+  });
+  document.querySelectorAll('[data-kanji-mode]').forEach(btn => {
+    btn.addEventListener('click', () => startKanjiQuiz(btn.dataset.kanjiMode));
+  });
+  document.getElementById('kanji-choices').addEventListener('click', (e) => {
+    const btn = e.target.closest('.choice-btn');
+    if (!btn) return;
+    handleKanjiChoice(parseInt(btn.dataset.choiceIndex, 10));
+  });
+  document.querySelectorAll('[data-kanji-key]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.kanjiKey === 'next') nextKanjiQuestion();
+    });
   });
   document.getElementById('link-stats').addEventListener('click', (e) => {
     e.preventDefault();
@@ -876,8 +1163,12 @@
   document.querySelectorAll('[data-goto]').forEach(el => {
     el.addEventListener('click', () => {
       const dest = el.dataset.goto;
-      if (dest === 'restart') startQuiz(state.mode, state.submode);
-      else showScreen(dest);
+      if (dest === 'restart') {
+        if (state.category === 'kanji') startKanjiQuiz(state.mode);
+        else startQuiz(state.mode, state.submode);
+      } else {
+        showScreen(dest);
+      }
     });
   });
   document.querySelectorAll('.key').forEach(k => {
@@ -891,7 +1182,6 @@
   });
 
   showScreen('menu');
-})();
 </script>
 </body>
 </html>
