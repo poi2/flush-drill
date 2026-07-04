@@ -41,13 +41,25 @@ function kanjiForm(kanji, r) {
 }
 
 /**
- * Collect n distinct distractor reading forms. Each distractor is the primary
- * reading of a `similar` kanji, suffixed with the correct reading's okurigana
- * (so a "正しい" question yields "はやしい / たしい / ..." pseudo-forms — parallel
- * in structure, wrong on kanji).
+ * Pick a distractor reading from a similar entry, shaped to match `correct`'s
+ * okurigana. If the similar entry has a reading with the same okurigana we use
+ * it directly (so numbers with 「〜つ」 counters yield parallel distractors:
+ * いつつ/やっつ/ここのつ against むっつ). Otherwise fall back to its primary +
+ * correct's okurigana (「正しい」 → 「はやしい / たしい / ...」).
  */
-function distractorReadingForms(entry, dictionary, correct, n, rng) {
+function pickDistractorReading(similarEntry, correct) {
   const okuri = correct.okurigana ?? '';
+  if (okuri) {
+    const match = similarEntry.readings.find(
+      (r) => r.primary === false && (r.okurigana ?? '') === okuri,
+    );
+    if (match) return readingForm(match);
+  }
+  const primary = primaryReading(similarEntry);
+  return primary ? primary.value + okuri : null;
+}
+
+function distractorReadingForms(entry, dictionary, correct, n, rng) {
   const correctForm = readingForm(correct);
   const seen = new Set([correctForm]);
   const result = [];
@@ -57,10 +69,8 @@ function distractorReadingForms(entry, dictionary, correct, n, rng) {
     .filter(Boolean);
   for (const s of shuffle(similarEntries, rng)) {
     if (result.length >= n) break;
-    const r = primaryReading(s);
-    if (!r) continue;
-    const form = r.value + okuri;
-    if (seen.has(form)) continue;
+    const form = pickDistractorReading(s, correct);
+    if (!form || seen.has(form)) continue;
     seen.add(form);
     result.push(form);
   }
@@ -69,10 +79,8 @@ function distractorReadingForms(entry, dictionary, correct, n, rng) {
     const fallback = dictionary.entries.filter((e) => e.kanji !== entry.kanji);
     for (const s of shuffle(fallback, rng)) {
       if (result.length >= n) break;
-      const r = primaryReading(s);
-      if (!r) continue;
-      const form = r.value + okuri;
-      if (seen.has(form)) continue;
+      const form = pickDistractorReading(s, correct);
+      if (!form || seen.has(form)) continue;
       seen.add(form);
       result.push(form);
     }
@@ -147,22 +155,22 @@ export function generateReadingToKanji(entry, dictionary, rng = Math.random) {
 /**
  * 文中の漢字の読み
  *
- * If the sentence contains `target + okurigana`, treat the whole word as the
- * target (e.g. "正しい") and ask about that form. Otherwise fall back to just
- * the kanji character with its bare stem reading — the okurigana of the
- * primary reading may not match every example (e.g. "正しく書く。" uses a
- * different suffix than "しい").
+ * The reading used for the correct answer comes from example.reading if the
+ * example specifies one (e.g. 六の「六つ ある。」 uses むっ+つ = むっつ even
+ * though the entry's primary is ろく). Otherwise it falls back to the target
+ * entry's primary reading. When the reading has okurigana AND the sentence
+ * contains that word form, the whole word is highlighted and asked about.
  */
 export function generateSentenceReading(entry, dictionary, rng = Math.random) {
   if (entry.examples.length === 0) throw new Error(`no examples for ${entry.kanji}`);
   const example = pickRandom(entry.examples, rng);
   const targetEntry = dictionary.byChar.get(example.target) ?? entry;
-  const primary = primaryReading(targetEntry);
-  if (!primary) throw new Error(`no primary reading for ${example.target}`);
+  const baseReading = example.reading ?? primaryReading(targetEntry);
+  if (!baseReading) throw new Error(`no reading for ${example.target}`);
 
-  const wordForm = example.target + (primary.okurigana ?? '');
-  const useWordForm = !!primary.okurigana && example.text.includes(wordForm);
-  const readingForDrill = useWordForm ? primary : { ...primary, okurigana: undefined };
+  const wordForm = example.target + (baseReading.okurigana ?? '');
+  const useWordForm = !!baseReading.okurigana && example.text.includes(wordForm);
+  const readingForDrill = useWordForm ? baseReading : { ...baseReading, okurigana: undefined };
 
   const correctText = readingForm(readingForDrill);
   const distractors = distractorReadingForms(targetEntry, dictionary, readingForDrill, CHOICE_COUNT - 1, rng);

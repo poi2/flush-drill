@@ -96,6 +96,14 @@
   .mode-btn[data-mode="kanji"] { border-color: #e57373; }
 
   /* --- かんじ サブメニュー --- */
+  .kanji-grade-group + .kanji-grade-group { margin-top: 20px; }
+  .kanji-grade-heading {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--muted);
+    margin: 4px 2px 8px;
+    letter-spacing: 0.05em;
+  }
   .kanji-mode-list {
     display: flex;
     flex-direction: column;
@@ -481,7 +489,7 @@
     <div class="category-heading">こくご</div>
     <div class="mode-buttons">
       <button class="mode-btn" data-mode="kanji">
-        <span>かんじ（10きゅう）</span><span class="emoji">🈶</span>
+        <span>かんじ</span><span class="emoji">漢</span>
       </button>
     </div>
     <div class="link-row">
@@ -525,20 +533,23 @@
   <section id="screen-kanji-menu" class="screen hidden">
     <div class="quiz-header">
       <button class="back-btn" data-goto="menu">‹ もどる</button>
-      <span>かんじ（10きゅう）</span>
+      <span>かんじ</span>
       <span></span>
     </div>
     <div class="submenu-title">どの れんしゅうを する？</div>
-    <div class="kanji-mode-list">
-      <button class="kanji-mode-btn" data-kanji-mode="k2r">
-        <span>かんじ ➡ よみ</span><span class="hint">かんじを 見て よみを えらぶ</span>
-      </button>
-      <button class="kanji-mode-btn" data-kanji-mode="r2k">
-        <span>よみ ➡ かんじ</span><span class="hint">よみを 見て かんじを えらぶ</span>
-      </button>
-      <button class="kanji-mode-btn" data-kanji-mode="ksent">
-        <span>ぶんの なかの よみ</span><span class="hint">ぶんに 出る かんじの よみ</span>
-      </button>
+    <div class="kanji-grade-group" data-grade="10">
+      <div class="kanji-grade-heading">10きゅう</div>
+      <div class="kanji-mode-list">
+        <button class="kanji-mode-btn" data-kanji-mode="k2r" data-grade="10">
+          <span>かんじ ➡ よみ</span><span class="hint">かんじを 見て よみを えらぶ</span>
+        </button>
+        <button class="kanji-mode-btn" data-kanji-mode="r2k" data-grade="10">
+          <span>よみ ➡ かんじ</span><span class="hint">よみを 見て かんじを えらぶ</span>
+        </button>
+        <button class="kanji-mode-btn" data-kanji-mode="ksent" data-grade="10">
+          <span>ぶんの なかの よみ</span><span class="hint">ぶんに 出る かんじの よみ</span>
+        </button>
+      </div>
     </div>
     <div class="submenu-title" id="kanji-loading-hint" style="margin-top:16px;">よみこみちゅう...</div>
   </section>

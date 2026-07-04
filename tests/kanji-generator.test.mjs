@@ -167,25 +167,73 @@ test('sentence-reading: falls back to bare kanji when sentence does not contain 
   assert.fail('did not find the 正しく example within 50 seeds');
 });
 
-test('primary=false readings are never used as correct or distractor (10級 constraint)', async () => {
+test('kanji-to-reading correct answer is always the entry primary reading form', async () => {
   const dict = await loadDictionary();
-  const nonPrimary = new Set();
+  const rng = makeRng(7);
   for (const e of dict.entries) {
-    for (const r of e.readings) {
-      if (!r.primary) nonPrimary.add(r.value);
-    }
+    const p = generateKanjiToReading(e, dict, rng);
+    const primary = primaryReading(e);
+    const expected = primary.value + (primary.okurigana ?? '');
+    assert.equal(p.choices[p.answerIndex], expected, `wrong correct for ${e.kanji}`);
+  }
+});
+
+test('kanji-to-reading distractors are all valid reading forms of some entry', async () => {
+  const dict = await loadDictionary();
+  // A reading form = value + (okurigana ?? '') for any reading of any entry.
+  const validForms = new Set();
+  for (const e of dict.entries) {
+    for (const r of e.readings) validForms.add(r.value + (r.okurigana ?? ''));
   }
   const rng = makeRng(7);
   for (const e of dict.entries) {
-    for (const kind of ['kanji-to-reading', 'sentence-reading']) {
-      const gen = kind === 'kanji-to-reading' ? generateKanjiToReading : generateSentenceReading;
-      const p = gen(e, dict, rng);
-      for (const choice of p.choices) {
-        assert.ok(
-          !nonPrimary.has(choice),
-          `non-primary reading "${choice}" leaked into ${kind} for ${e.kanji}`,
-        );
+    const primary = primaryReading(e);
+    const okuri = primary.okurigana ?? '';
+    const p = generateKanjiToReading(e, dict, rng);
+    for (const c of p.choices) {
+      // Either the choice is a valid reading form as-is (from a matching okurigana entry),
+      // or it's a primary-value + this-entry's-okurigana pseudo-form.
+      const stem = okuri && c.endsWith(okuri) ? c.slice(0, -okuri.length) : c;
+      const primaryValues = new Set(dict.entries.map((x) => primaryReading(x).value));
+      const ok = validForms.has(c) || primaryValues.has(stem);
+      assert.ok(ok, `unexpected distractor "${c}" for ${e.kanji}`);
+    }
+  }
+});
+
+test('sentence-reading: target appears exactly once in the sentence (no ambiguous underline)', async () => {
+  const dict = await loadDictionary();
+  for (const e of dict.entries) {
+    for (const ex of e.examples) {
+      const baseReading = ex.reading ?? primaryReading(e);
+      const wordForm = ex.target + (baseReading?.okurigana ?? '');
+      const useWordForm = !!baseReading?.okurigana && ex.text.includes(wordForm);
+      const shown = useWordForm ? wordForm : ex.target;
+      const parts = ex.text.split(shown);
+      const occ = parts.length - 1;
+      // If shown is the wordForm (with okurigana), extra bare-target chars in text are fine
+      // because the UI only highlights `shown`. But bare targets outside wordForm are ambiguous
+      // when we're showing just the bare target.
+      if (!useWordForm) {
+        assert.equal(occ, 1, `${e.kanji} example "${ex.text}": bare target appears ${occ}x`);
+      } else {
+        assert.ok(occ >= 1, `${e.kanji} example "${ex.text}": wordForm ${wordForm} not found`);
       }
+    }
+  }
+});
+
+test('sentence-reading uses example.reading when specified', async () => {
+  const dict = await loadDictionary();
+  for (const e of dict.entries) {
+    for (let seed = 0; seed < 30; seed++) {
+      const p = generateSentenceReading(e, dict, makeRng(seed));
+      const ex = e.examples.find((x) => x.text === p.sentence);
+      const baseReading = ex.reading ?? primaryReading(e);
+      const wordForm = ex.target + (baseReading.okurigana ?? '');
+      const useWordForm = !!baseReading.okurigana && ex.text.includes(wordForm);
+      const expected = baseReading.value + (useWordForm ? baseReading.okurigana : '');
+      assert.equal(p.choices[p.answerIndex], expected, `wrong correct for ${e.kanji} / ${p.sentence}`);
     }
   }
 });

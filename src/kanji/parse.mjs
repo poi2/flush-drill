@@ -10,6 +10,7 @@
  * @typedef {Object} Example
  * @property {string} text
  * @property {string} target
+ * @property {Reading} [reading]  override for sentence-reading; when set, used instead of the target entry's primary reading
  */
 
 /**
