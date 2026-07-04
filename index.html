@@ -230,11 +230,23 @@
   .link-row {
     margin-top: 20px;
     text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
   }
   .link-row a {
     color: var(--primary);
     font-size: 15px;
     text-decoration: none;
+    padding: 8px 12px;
+  }
+  .sound-toggle {
+    background: transparent;
+    border: none;
+    color: var(--primary);
+    font-size: 15px;
+    cursor: pointer;
     padding: 8px 12px;
   }
 
@@ -494,6 +506,7 @@
     </div>
     <div class="link-row">
       <a href="#" id="link-stats">きろくを みる ›</a>
+      <button type="button" class="sound-toggle" id="sound-toggle" aria-label="おと オン/オフ">🔊 おと</button>
     </div>
   </section>
 
@@ -572,7 +585,7 @@
     <div class="choices" id="kanji-choices"></div>
 
     <div class="keypad hidden" id="kanji-keypad-next">
-      <button class="key next" data-kanji-key="next">つぎへ</button>
+      <button class="key next" data-kanji-key="next" id="btn-kanji-next">つぎへ</button>
     </div>
   </section>
 
@@ -608,7 +621,7 @@
     </div>
 
     <div class="keypad hidden" id="keypad-next">
-      <button class="key next" data-key="next">つぎへ</button>
+      <button class="key next" data-key="next" id="btn-next">つぎへ</button>
     </div>
   </section>
 
@@ -684,6 +697,67 @@
   };
   const QUESTIONS_PER_SET = 10;
   const STORAGE_KEY = 'flushdrill_stats_v1';
+  const MUTE_KEY = 'flushdrill_muted_v1';
+
+  // Web Audio 合成音。素材ファイル不要、iOS Safari は初回タップで unlock。
+  const SoundFx = (() => {
+    let ctx = null;
+    let muted = localStorage.getItem(MUTE_KEY) === '1';
+    function ensureCtx() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) ctx = new AC();
+      }
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+    function tone(c, freq, startOffset, duration, type, peak) {
+      const t0 = c.currentTime + startOffset;
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(peak, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+      osc.connect(gain).connect(c.destination);
+      osc.start(t0);
+      osc.stop(t0 + duration + 0.02);
+    }
+    return {
+      correct() {
+        if (muted) return;
+        const c = ensureCtx();
+        if (!c) return;
+        // 明るい上昇 2音 (C5 → G5)。
+        tone(c, 523.25, 0, 0.14, 'sine', 0.18);
+        tone(c, 783.99, 0.10, 0.20, 'sine', 0.15);
+      },
+      wrong() {
+        if (muted) return;
+        const c = ensureCtx();
+        if (!c) return;
+        // 低音の下降ブザー。三角波でやや柔らかく。
+        const t0 = c.currentTime;
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(220, t0);
+        osc.frequency.exponentialRampToValueAtTime(110, t0 + 0.35);
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(0.15, t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.36);
+        osc.connect(gain).connect(c.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.38);
+      },
+      setMuted(m) {
+        muted = !!m;
+        localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
+      },
+      isMuted() { return muted; },
+    };
+  })();
 
   const state = {
     category: null, // 'arith' | 'kanji'
@@ -878,14 +952,26 @@
       box.classList.add('correct');
       fb.textContent = 'せいかい！';
       fb.className = 'feedback correct';
+      SoundFx.correct();
     } else {
       box.classList.add('wrong');
       fb.textContent = `ざんねん... こたえは ${q.ans}`;
       fb.className = 'feedback wrong';
+      SoundFx.wrong();
     }
     document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
     document.getElementById('keypad-input').classList.add('hidden');
     document.getElementById('keypad-next').classList.remove('hidden');
+    // 不正解のときは「つぎへ」の連打で答えを飛ばさないよう短くロック。
+    // Root cause: けってい/つぎへ が同じ画面位置にレンダリングされ、
+    // 素早い 2 タップで正解を確認せず進んでしまう。
+    const nextBtn = document.getElementById('btn-next');
+    if (!isCorrect) {
+      nextBtn.disabled = true;
+      setTimeout(() => { nextBtn.disabled = false; }, 700);
+    } else {
+      nextBtn.disabled = false;
+    }
   }
   function nextQuestion() {
     state.index++;
@@ -1026,12 +1112,21 @@
     if (isCorrect) {
       fb.textContent = 'せいかい！';
       fb.className = 'feedback correct';
+      SoundFx.correct();
     } else {
       fb.textContent = `こたえは「${q.choices[q.answerIndex]}」`;
       fb.className = 'feedback wrong';
+      SoundFx.wrong();
     }
     document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
     document.getElementById('kanji-keypad-next').classList.remove('hidden');
+    const nextBtn = document.getElementById('btn-kanji-next');
+    if (!isCorrect) {
+      nextBtn.disabled = true;
+      setTimeout(() => { nextBtn.disabled = false; }, 700);
+    } else {
+      nextBtn.disabled = false;
+    }
   }
 
   function nextKanjiQuestion() {
@@ -1170,6 +1265,15 @@
   document.getElementById('link-stats').addEventListener('click', (e) => {
     e.preventDefault();
     showScreen('stats');
+  });
+  const soundToggle = document.getElementById('sound-toggle');
+  function renderSoundToggle() {
+    soundToggle.textContent = SoundFx.isMuted() ? '🔇 おと' : '🔊 おと';
+  }
+  renderSoundToggle();
+  soundToggle.addEventListener('click', () => {
+    SoundFx.setMuted(!SoundFx.isMuted());
+    renderSoundToggle();
   });
   document.querySelectorAll('[data-goto]').forEach(el => {
     el.addEventListener('click', () => {
