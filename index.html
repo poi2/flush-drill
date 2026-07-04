@@ -768,7 +768,8 @@
     index: 0,
     correctCount: 0,
     input: '',
-    phase: 'input', // 'input' | 'feedback'
+    phase: 'input', // 'input' | 'retry' | 'feedback'
+    firstAttemptDone: false, // 誤答時のリトライで二重加点しないためのフラグ
   };
 
   const MUL_SUBMODES = {
@@ -906,6 +907,7 @@
     document.getElementById('keypad-input').classList.remove('hidden');
     document.getElementById('keypad-next').classList.add('hidden');
     state.phase = 'input';
+    state.firstAttemptDone = false;
   }
   function renderInput() {
     const box = document.getElementById('answer-box');
@@ -919,6 +921,23 @@
   function pressKey(key) {
     if (state.phase === 'feedback') {
       if (key === 'next') nextQuestion();
+      return;
+    }
+    if (state.phase === 'retry') {
+      // 誤答フィードバック中。数字/けす を押すと通常入力に戻り、
+      // 正解を打ち込ませてから けってい で進める。
+      if (/^\d$/.test(key)) {
+        state.phase = 'input';
+        state.input = key;
+        document.getElementById('answer-box').classList.remove('wrong');
+        renderInput();
+      } else if (key === 'clear') {
+        state.phase = 'input';
+        state.input = '';
+        document.getElementById('answer-box').classList.remove('wrong');
+        renderInput();
+      }
+      // submit は btn-submit が disabled のため無視される
       return;
     }
     if (key === 'clear') {
@@ -943,34 +962,36 @@
     const q = state.questions[state.index];
     const user = parseInt(state.input, 10);
     const isCorrect = user === q.ans;
-    if (isCorrect) state.correctCount++;
-    state.phase = 'feedback';
+
+    // スコアは初回試行のみ。誤答→リトライで正解しても加点しない。
+    if (!state.firstAttemptDone) {
+      state.firstAttemptDone = true;
+      if (isCorrect) state.correctCount++;
+    }
 
     const box = document.getElementById('answer-box');
     const fb = document.getElementById('feedback');
     if (isCorrect) {
+      box.classList.remove('wrong');
       box.classList.add('correct');
       fb.textContent = 'せいかい！';
       fb.className = 'feedback correct';
       SoundFx.correct();
+      state.phase = 'feedback';
+      document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
+      document.getElementById('keypad-input').classList.add('hidden');
+      document.getElementById('keypad-next').classList.remove('hidden');
     } else {
+      // 誤答: keypad-input を保持し、正解を入力させる。けってい は無効化して
+      // 誤答連打で先に進めないようにする。
+      box.classList.remove('correct');
       box.classList.add('wrong');
       fb.textContent = `ざんねん... こたえは ${q.ans}`;
       fb.className = 'feedback wrong';
       SoundFx.wrong();
-    }
-    document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('keypad-input').classList.add('hidden');
-    document.getElementById('keypad-next').classList.remove('hidden');
-    // 不正解のときは「つぎへ」の連打で答えを飛ばさないよう短くロック。
-    // Root cause: けってい/つぎへ が同じ画面位置にレンダリングされ、
-    // 素早い 2 タップで正解を確認せず進んでしまう。
-    const nextBtn = document.getElementById('btn-next');
-    if (!isCorrect) {
-      nextBtn.disabled = true;
-      setTimeout(() => { nextBtn.disabled = false; }, 700);
-    } else {
-      nextBtn.disabled = false;
+      state.phase = 'retry';
+      document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
+      document.getElementById('btn-submit').disabled = true;
     }
   }
   function nextQuestion() {
@@ -1092,40 +1113,55 @@
 
     document.getElementById('kanji-keypad-next').classList.add('hidden');
     state.phase = 'input';
+    state.firstAttemptDone = false;
   }
 
   function handleKanjiChoice(index) {
-    if (state.phase !== 'input') return;
+    if (state.phase === 'feedback') return;
     const q = state.questions[state.index];
     const isCorrect = index === q.answerIndex;
-    if (isCorrect) state.correctCount++;
-    state.phase = 'feedback';
 
-    document.querySelectorAll('#kanji-choices .choice-btn').forEach((btn, i) => {
-      btn.disabled = true;
-      if (i === q.answerIndex) btn.classList.add('correct');
-      else if (i === index) btn.classList.add('wrong');
-      else btn.classList.add('dim');
-    });
+    // スコアは初回のみ。リトライで正解しても加点しない。
+    if (!state.firstAttemptDone) {
+      state.firstAttemptDone = true;
+      if (isCorrect) state.correctCount++;
+    }
 
+    const buttons = document.querySelectorAll('#kanji-choices .choice-btn');
     const fb = document.getElementById('kanji-feedback');
+
     if (isCorrect) {
+      state.phase = 'feedback';
+      buttons.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === q.answerIndex) btn.classList.add('correct');
+        else if (!btn.classList.contains('wrong')) btn.classList.add('dim');
+      });
       fb.textContent = 'せいかい！';
       fb.className = 'feedback correct';
       SoundFx.correct();
+      document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
+      document.getElementById('kanji-keypad-next').classList.remove('hidden');
     } else {
+      // 誤答: 押した選択肢を wrong で無効化、他は dim で無効化し、正解だけ
+      // タップ可能な状態にする。子どもは「たけ」の位置を能動的に確認して進む。
+      state.phase = 'retry';
+      buttons.forEach((btn, i) => {
+        if (i === q.answerIndex) {
+          btn.classList.add('correct');
+          btn.disabled = false;
+        } else if (i === index) {
+          btn.classList.add('wrong');
+          btn.disabled = true;
+        } else {
+          btn.classList.add('dim');
+          btn.disabled = true;
+        }
+      });
       fb.textContent = `こたえは「${q.choices[q.answerIndex]}」`;
       fb.className = 'feedback wrong';
       SoundFx.wrong();
-    }
-    document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('kanji-keypad-next').classList.remove('hidden');
-    const nextBtn = document.getElementById('btn-kanji-next');
-    if (!isCorrect) {
-      nextBtn.disabled = true;
-      setTimeout(() => { nextBtn.disabled = false; }, 700);
-    } else {
-      nextBtn.disabled = false;
+      document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
     }
   }
 
