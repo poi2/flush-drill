@@ -94,6 +94,15 @@
   .mode-btn[data-mode="sub"] { border-color: #ffb74d; }
   .mode-btn[data-mode="mul"] { border-color: #81c784; }
   .mode-btn[data-mode="kanji"] { border-color: #e57373; }
+  .mode-btn[data-mode="clock"] { border-color: #ba68c8; }
+
+  /* --- とけい クイズ --- */
+  .clock-face {
+    display: flex;
+    justify-content: center;
+    margin: 16px 0 8px;
+  }
+  .clock-face svg { width: 220px; max-width: 100%; height: auto; }
 
   /* --- かんじ サブメニュー --- */
   .kanji-grade-group + .kanji-grade-group { margin-top: 20px; }
@@ -504,6 +513,12 @@
         <span>かんじ</span><span class="emoji">漢</span>
       </button>
     </div>
+    <div class="category-heading">せいかつ</div>
+    <div class="mode-buttons">
+      <button class="mode-btn" data-mode="clock">
+        <span>とけい</span><span class="emoji">🕐</span>
+      </button>
+    </div>
     <div class="link-row">
       <a href="#" id="link-stats">きろくを みる ›</a>
       <button type="button" class="sound-toggle" id="sound-toggle" aria-label="おと オン/オフ">🔊 おと</button>
@@ -586,6 +601,27 @@
 
     <div class="keypad hidden" id="kanji-keypad-next">
       <button class="key next" data-kanji-key="next" id="btn-kanji-next">つぎへ</button>
+    </div>
+  </section>
+
+  <!-- とけい クイズ画面 -->
+  <section id="screen-clock-quiz" class="screen hidden">
+    <div class="quiz-header">
+      <button class="back-btn" data-goto="menu">‹ もどる</button>
+      <span id="clock-progress-text">1 / 10</span>
+      <span id="clock-score-text">〇 0</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="clock-progress-fill"></div></div>
+
+    <div class="question">
+      <div id="clock-face" class="clock-face"></div>
+      <div class="feedback" id="clock-feedback"></div>
+    </div>
+
+    <div class="choices" id="clock-choices"></div>
+
+    <div class="keypad hidden" id="clock-keypad-next">
+      <button class="key next" data-clock-key="next" id="btn-clock-next">つぎへ</button>
     </div>
   </section>
 
@@ -694,6 +730,7 @@
     k2r: { label: 'かんじ ➡ よみ' },
     r2k: { label: 'よみ ➡ かんじ' },
     ksent: { label: 'ぶんの なかの よみ' },
+    clock: { label: 'とけい' },
   };
   const QUESTIONS_PER_SET = 10;
   const STORAGE_KEY = 'flushdrill_stats_v1';
@@ -857,6 +894,7 @@
     kanjiMenu: document.getElementById('screen-kanji-menu'),
     quiz: document.getElementById('screen-quiz'),
     kanjiQuiz: document.getElementById('screen-kanji-quiz'),
+    clockQuiz: document.getElementById('screen-clock-quiz'),
     result: document.getElementById('screen-result'),
     stats: document.getElementById('screen-stats'),
   };
@@ -1004,7 +1042,9 @@
   }
   function finishQuiz() {
     saveResult(state.mode, state.correctCount, QUESTIONS_PER_SET);
-    const fillId = state.category === 'kanji' ? 'kanji-progress-fill' : 'progress-fill';
+    const fillId = state.category === 'kanji' ? 'kanji-progress-fill'
+      : state.category === 'clock' ? 'clock-progress-fill'
+      : 'progress-fill';
     document.getElementById(fillId).style.width = '100%';
     document.getElementById('result-correct').textContent = state.correctCount;
     const submode = (state.category !== 'kanji' && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
@@ -1173,6 +1213,156 @@
     }
   }
 
+  // --- とけいクイズ ---
+  const CLOCK_MINUTES = [0, 15, 30, 45];
+  function formatClockTime(h, m) {
+    return m === 0 ? `${h}時` : `${h}時${m}分`;
+  }
+  function generateClockQuestion() {
+    const h = randInt(1, 12);
+    const m = CLOCK_MINUTES[randInt(0, 3)];
+    const pool = [];
+    for (let hh = 1; hh <= 12; hh++) {
+      for (const mm of CLOCK_MINUTES) {
+        if (hh === h && mm === m) continue;
+        pool.push({ h: hh, m: mm });
+      }
+    }
+    const distractors = shuffle(pool).slice(0, 3);
+    const options = shuffle([{ h, m }, ...distractors]);
+    const answerIndex = options.findIndex(o => o.h === h && o.m === m);
+    return { h, m, options, answerIndex };
+  }
+  function generateClockSet() {
+    const set = [];
+    for (let i = 0; i < QUESTIONS_PER_SET; i++) set.push(generateClockQuestion());
+    return set;
+  }
+  function renderClockFace(h, m) {
+    const minuteAngle = m * 6;
+    // 時針は分に応じて進む (1分あたり 0.5度)
+    const hourAngle = ((h % 12) * 30) + (m * 0.5);
+    const numbers = [];
+    for (let i = 1; i <= 12; i++) {
+      const a = (i * 30 - 90) * Math.PI / 180;
+      const x = 100 + Math.cos(a) * 74;
+      const y = 100 + Math.sin(a) * 74;
+      numbers.push(
+        `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="18" font-weight="bold" fill="#333">${i}</text>`
+      );
+    }
+    const ticks = [];
+    for (let i = 0; i < 60; i++) {
+      const a = (i * 6 - 90) * Math.PI / 180;
+      const r1 = i % 5 === 0 ? 82 : 86;
+      const r2 = 90;
+      const x1 = 100 + Math.cos(a) * r1;
+      const y1 = 100 + Math.sin(a) * r1;
+      const x2 = 100 + Math.cos(a) * r2;
+      const y2 = 100 + Math.sin(a) * r2;
+      const w = i % 5 === 0 ? 2 : 1;
+      ticks.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#333" stroke-width="${w}"/>`);
+    }
+    return `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="とけい">
+      <circle cx="100" cy="100" r="95" fill="#fff" stroke="#333" stroke-width="3"/>
+      ${ticks.join('')}
+      ${numbers.join('')}
+      <line x1="100" y1="100" x2="100" y2="50" stroke="#1976d2" stroke-width="7" stroke-linecap="round" transform="rotate(${hourAngle.toFixed(2)} 100 100)"/>
+      <line x1="100" y1="100" x2="100" y2="22" stroke="#d32f2f" stroke-width="4" stroke-linecap="round" transform="rotate(${minuteAngle.toFixed(2)} 100 100)"/>
+      <circle cx="100" cy="100" r="5" fill="#333"/>
+    </svg>`;
+  }
+  function startClockQuiz() {
+    state.category = 'clock';
+    state.mode = 'clock';
+    state.submode = null;
+    state.submodeLabel = '';
+    state.questions = generateClockSet();
+    state.index = 0;
+    state.correctCount = 0;
+    state.phase = 'input';
+    showScreen('clockQuiz');
+    renderClockQuestion();
+  }
+  function renderClockQuestion() {
+    const q = state.questions[state.index];
+    document.getElementById('clock-face').innerHTML = renderClockFace(q.h, q.m);
+    document.getElementById('clock-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
+    document.getElementById('clock-score-text').textContent = `〇 ${state.correctCount}`;
+    document.getElementById('clock-progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+
+    const fb = document.getElementById('clock-feedback');
+    fb.textContent = '';
+    fb.className = 'feedback';
+
+    const choicesEl = document.getElementById('clock-choices');
+    choicesEl.innerHTML = '';
+    q.options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.dataset.choiceIndex = String(i);
+      btn.textContent = formatClockTime(opt.h, opt.m);
+      choicesEl.appendChild(btn);
+    });
+
+    document.getElementById('clock-keypad-next').classList.add('hidden');
+    state.phase = 'input';
+    state.firstAttemptDone = false;
+  }
+  function handleClockChoice(index) {
+    if (state.phase === 'feedback') return;
+    const q = state.questions[state.index];
+    const isCorrect = index === q.answerIndex;
+
+    if (!state.firstAttemptDone) {
+      state.firstAttemptDone = true;
+      if (isCorrect) state.correctCount++;
+    }
+
+    const buttons = document.querySelectorAll('#clock-choices .choice-btn');
+    const fb = document.getElementById('clock-feedback');
+
+    if (isCorrect) {
+      state.phase = 'feedback';
+      buttons.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === q.answerIndex) btn.classList.add('correct');
+        else if (!btn.classList.contains('wrong')) btn.classList.add('dim');
+      });
+      fb.textContent = 'せいかい！';
+      fb.className = 'feedback correct';
+      SoundFx.correct();
+      document.getElementById('clock-score-text').textContent = `〇 ${state.correctCount}`;
+      document.getElementById('clock-keypad-next').classList.remove('hidden');
+    } else {
+      state.phase = 'retry';
+      buttons.forEach((btn, i) => {
+        if (i === q.answerIndex) {
+          btn.classList.add('correct');
+          btn.disabled = false;
+        } else if (i === index) {
+          btn.classList.add('wrong');
+          btn.disabled = true;
+        } else {
+          btn.classList.add('dim');
+          btn.disabled = true;
+        }
+      });
+      fb.textContent = `こたえは「${formatClockTime(q.options[q.answerIndex].h, q.options[q.answerIndex].m)}」`;
+      fb.className = 'feedback wrong';
+      SoundFx.wrong();
+      document.getElementById('clock-score-text').textContent = `〇 ${state.correctCount}`;
+    }
+  }
+  function nextClockQuestion() {
+    state.index++;
+    if (state.index >= QUESTIONS_PER_SET) {
+      finishQuiz();
+    } else {
+      renderClockQuestion();
+    }
+  }
+
   // --- 記録 ---
   function todayKey() {
     const d = new Date();
@@ -1250,6 +1440,7 @@
       { key: 'k2r', label: '漢→読', count: todayData.k2r?.c || 0 },
       { key: 'r2k', label: '読→漢', count: todayData.r2k?.c || 0 },
       { key: 'ksent', label: '文中', count: todayData.ksent?.c || 0 },
+      { key: 'clock', label: 'とけい', count: todayData.clock?.c || 0 },
     ];
     renderBarChart('chart-mode-today', modeData, d => d.count, d => d.label);
   }
@@ -1278,6 +1469,7 @@
       const mode = btn.dataset.mode;
       if (mode === 'mul') showScreen('mulMenu');
       else if (mode === 'kanji') showScreen('kanjiMenu');
+      else if (mode === 'clock') startClockQuiz();
       else startQuiz(mode);
     });
   });
@@ -1295,6 +1487,16 @@
   document.querySelectorAll('[data-kanji-key]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (btn.dataset.kanjiKey === 'next') nextKanjiQuestion();
+    });
+  });
+  document.getElementById('clock-choices').addEventListener('click', (e) => {
+    const btn = e.target.closest('.choice-btn');
+    if (!btn) return;
+    handleClockChoice(parseInt(btn.dataset.choiceIndex, 10));
+  });
+  document.querySelectorAll('[data-clock-key]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.clockKey === 'next') nextClockQuestion();
     });
   });
   document.getElementById('link-stats').addEventListener('click', (e) => {
@@ -1315,6 +1517,7 @@
       const dest = el.dataset.goto;
       if (dest === 'restart') {
         if (state.category === 'kanji') startKanjiQuiz(state.mode);
+        else if (state.category === 'clock') startClockQuiz();
         else startQuiz(state.mode, state.submode);
       } else {
         showScreen(dest);
