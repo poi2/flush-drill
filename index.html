@@ -826,8 +826,7 @@
     if (submode.startsWith('row-')) {
       const row = parseInt(submode.slice(4), 10);
       for (let i = 0; i < QUESTIONS_PER_SET; i++) {
-        const b = (i % 9) + 1; // 1,2,...,9,1
-        set.push(mulQ(row, b));
+        set.push(mulQ(row, i + 1));
       }
       return set;
     }
