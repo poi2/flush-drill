@@ -93,8 +93,17 @@
   .mode-btn[data-mode="add"] { border-color: #64b5f6; }
   .mode-btn[data-mode="sub"] { border-color: #ffb74d; }
   .mode-btn[data-mode="mul"] { border-color: #81c784; }
+  .mode-btn[data-mode="ten-comp"] { border-color: #4db6ac; }
+  .mode-btn[data-mode="parity"] { border-color: #a1887f; }
   .mode-btn[data-mode="kanji"] { border-color: #e57373; }
+  .mode-btn[data-mode="hira-to-kata"] { border-color: #f48fb1; }
+  .mode-btn[data-mode="kata-to-hira"] { border-color: #f06292; }
+  .mode-btn[data-mode="antonym"] { border-color: #ff8a65; }
+  .mode-btn[data-mode="ja-to-en"] { border-color: #ffd54f; }
+  .mode-btn[data-mode="en-to-ja"] { border-color: #ffca28; }
   .mode-btn[data-mode="clock"] { border-color: #ba68c8; }
+  .mode-btn[data-mode="season"] { border-color: #f8bbd0; }
+  .mode-btn[data-mode="group"] { border-color: #4fc3f7; }
 
   /* --- とけい クイズ --- */
   .clock-face {
@@ -164,6 +173,21 @@
     color: var(--muted);
     margin-top: 4px;
   }
+
+  /* --- 汎用 4択 クイズ プロンプト --- */
+  .choice-prompt {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 12px 8px;
+    font-weight: bold;
+    line-height: 1.4;
+  }
+  .choice-prompt.size-l { font-size: 92px; line-height: 1; }
+  .choice-prompt.size-m { font-size: 44px; letter-spacing: 2px; }
+  .choice-prompt.size-s { font-size: 26px; }
 
   .choices {
     display: grid;
@@ -506,17 +530,47 @@
       <button class="mode-btn" data-mode="mul">
         <span>かけざん</span><span class="emoji">✖️</span>
       </button>
+      <button class="mode-btn" data-mode="ten-comp">
+        <span>10 の あわせて</span><span class="emoji">🔟</span>
+      </button>
+      <button class="mode-btn" data-mode="parity">
+        <span>ぐうすう・きすう</span><span class="emoji">⚖️</span>
+      </button>
     </div>
     <div class="category-heading">こくご</div>
     <div class="mode-buttons">
       <button class="mode-btn" data-mode="kanji">
         <span>かんじ</span><span class="emoji">漢</span>
       </button>
+      <button class="mode-btn" data-mode="hira-to-kata">
+        <span>ひらがな ➡ カタカナ</span><span class="emoji">ア</span>
+      </button>
+      <button class="mode-btn" data-mode="kata-to-hira">
+        <span>カタカナ ➡ ひらがな</span><span class="emoji">あ</span>
+      </button>
+      <button class="mode-btn" data-mode="antonym">
+        <span>はんたい ことば</span><span class="emoji">⇔</span>
+      </button>
     </div>
-    <div class="category-heading">せいかつ</div>
+    <div class="category-heading">えいご</div>
+    <div class="mode-buttons">
+      <button class="mode-btn" data-mode="ja-to-en">
+        <span>にほんご ➡ えいご</span><span class="emoji">A</span>
+      </button>
+      <button class="mode-btn" data-mode="en-to-ja">
+        <span>えいご ➡ にほんご</span><span class="emoji">🔠</span>
+      </button>
+    </div>
+    <div class="category-heading">りか・せいかつ・しゃかい</div>
     <div class="mode-buttons">
       <button class="mode-btn" data-mode="clock">
         <span>とけい</span><span class="emoji">🕐</span>
+      </button>
+      <button class="mode-btn" data-mode="season">
+        <span>きせつの ことば</span><span class="emoji">🌸</span>
+      </button>
+      <button class="mode-btn" data-mode="group">
+        <span>なかまわけ</span><span class="emoji">🍎</span>
       </button>
     </div>
     <div class="link-row">
@@ -601,6 +655,28 @@
 
     <div class="keypad hidden" id="kanji-keypad-next">
       <button class="key next" data-kanji-key="next" id="btn-kanji-next">つぎへ</button>
+    </div>
+  </section>
+
+  <!-- 汎用 4択 クイズ画面 (カタカナ / はんたい / 10の合成 / つぎのかず / 偶奇 / えいご / なきごえ / きせつ / なかまわけ) -->
+  <section id="screen-choice-quiz" class="screen hidden">
+    <div class="quiz-header">
+      <button class="back-btn" data-goto="menu">‹ もどる</button>
+      <span id="choice-progress-text">1 / 10</span>
+      <span id="choice-score-text">〇 0</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="choice-progress-fill"></div></div>
+    <div id="choice-submode-label" class="submode-label"></div>
+
+    <div class="question">
+      <div id="choice-prompt" class="choice-prompt"></div>
+      <div class="feedback" id="choice-feedback"></div>
+    </div>
+
+    <div class="choices" id="choice-choices"></div>
+
+    <div class="keypad hidden" id="choice-keypad-next">
+      <button class="key next" data-choice-key="next" id="btn-choice-next">つぎへ</button>
     </div>
   </section>
 
@@ -722,15 +798,51 @@
     generateSentenceReading,
   } from './src/kanji/generator.mjs';
   import { shuffle } from './src/kanji/random.mjs';
+  import {
+    generateHiraToKata,
+    generateKataToHira,
+    generateAntonym,
+  } from './src/kokugo/generator.mjs';
+  import {
+    generateTenComp,
+    generateParity,
+  } from './src/sansu/generator.mjs';
+  import { generateJaToEn, generateEnToJa } from './src/eigo/generator.mjs';
+  import {
+    generateSeason,
+    generateGroup,
+  } from './src/seikatsu/generator.mjs';
 
   const MODES = {
     add: { label: 'たしざん', symbol: '＋' },
     sub: { label: 'ひきざん', symbol: '－' },
     mul: { label: 'かけざん', symbol: '×' },
+    'ten-comp': { label: '10 の あわせて' },
+    parity: { label: 'ぐうすう・きすう' },
     k2r: { label: 'かんじ ➡ よみ' },
     r2k: { label: 'よみ ➡ かんじ' },
     ksent: { label: 'ぶんの なかの よみ' },
+    'hira-to-kata': { label: 'ひらがな ➡ カタカナ' },
+    'kata-to-hira': { label: 'カタカナ ➡ ひらがな' },
+    antonym: { label: 'はんたい ことば' },
+    'ja-to-en': { label: 'にほんご ➡ えいご' },
+    'en-to-ja': { label: 'えいご ➡ にほんご' },
     clock: { label: 'とけい' },
+    season: { label: 'きせつの ことば' },
+    group: { label: 'なかまわけ' },
+  };
+
+  // 汎用 4択画面を使うモード。生成器を集約。
+  const CHOICE_GENERATORS = {
+    'hira-to-kata': generateHiraToKata,
+    'kata-to-hira': generateKataToHira,
+    antonym: generateAntonym,
+    'ten-comp': generateTenComp,
+    parity: generateParity,
+    'ja-to-en': generateJaToEn,
+    'en-to-ja': generateEnToJa,
+    season: generateSeason,
+    group: generateGroup,
   };
   const QUESTIONS_PER_SET = 10;
   const STORAGE_KEY = 'flushdrill_stats_v1';
@@ -895,6 +1007,7 @@
     quiz: document.getElementById('screen-quiz'),
     kanjiQuiz: document.getElementById('screen-kanji-quiz'),
     clockQuiz: document.getElementById('screen-clock-quiz'),
+    choiceQuiz: document.getElementById('screen-choice-quiz'),
     result: document.getElementById('screen-result'),
     stats: document.getElementById('screen-stats'),
   };
@@ -1044,10 +1157,13 @@
     saveResult(state.mode, state.correctCount, QUESTIONS_PER_SET);
     const fillId = state.category === 'kanji' ? 'kanji-progress-fill'
       : state.category === 'clock' ? 'clock-progress-fill'
+      : state.category === 'choice' ? 'choice-progress-fill'
       : 'progress-fill';
     document.getElementById(fillId).style.width = '100%';
     document.getElementById('result-correct').textContent = state.correctCount;
-    const submode = (state.category !== 'kanji' && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
+    // submode 詳細は かけざん 系のみ。他カテゴリでは state.submodeLabel が
+    // モード名そのものなので重複表示を避ける。
+    const submode = (state.category === 'arith' && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
     document.getElementById('result-mode').textContent = MODES[state.mode].label + submode;
     const msg = document.getElementById('result-message');
     if (state.correctCount === QUESTIONS_PER_SET) msg.textContent = '🏆 パーフェクト！';
@@ -1210,6 +1326,135 @@
       finishQuiz();
     } else {
       renderKanjiQuestion();
+    }
+  }
+
+  // --- 汎用 4択クイズ (カタカナ, はんたい, 10の合成, 数の並び, 偶奇, 英語, なきごえ, きせつ, なかまわけ) ---
+
+  /** プロンプト文字列の長さから表示サイズを決める。 */
+  function choicePromptSize(text) {
+    if (text.length <= 2) return 'size-l';
+    if (text.length <= 6) return 'size-m';
+    return 'size-s';
+  }
+
+  function generateChoiceSet(mode) {
+    const gen = CHOICE_GENERATORS[mode];
+    if (!gen) throw new Error(`unknown choice mode: ${mode}`);
+    // 同じ問題が連続すると単調なので、生成した問題の question キーで重複を軽く避ける。
+    // 完全なユニーク保証は難しいので best-effort（母集団が少ないモードでは重複してもよい）。
+    const set = [];
+    const seen = new Set();
+    let attempts = 0;
+    while (set.length < QUESTIONS_PER_SET && attempts < QUESTIONS_PER_SET * 6) {
+      attempts++;
+      const q = gen();
+      const key = q.question;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      set.push(q);
+    }
+    while (set.length < QUESTIONS_PER_SET) set.push(gen());
+    return set;
+  }
+
+  function startChoiceQuiz(mode) {
+    state.category = 'choice';
+    state.mode = mode;
+    state.submode = null;
+    state.submodeLabel = MODES[mode].label;
+    state.questions = generateChoiceSet(mode);
+    state.index = 0;
+    state.correctCount = 0;
+    state.phase = 'input';
+    showScreen('choiceQuiz');
+    renderChoiceQuestion();
+  }
+
+  function renderChoiceQuestion() {
+    const q = state.questions[state.index];
+    const prompt = document.getElementById('choice-prompt');
+    prompt.className = 'choice-prompt ' + choicePromptSize(q.question);
+    prompt.textContent = q.question;
+
+    document.getElementById('choice-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
+    document.getElementById('choice-score-text').textContent = `〇 ${state.correctCount}`;
+    document.getElementById('choice-progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+    document.getElementById('choice-submode-label').textContent = state.submodeLabel;
+
+    const fb = document.getElementById('choice-feedback');
+    fb.textContent = '';
+    fb.className = 'feedback';
+
+    const choicesEl = document.getElementById('choice-choices');
+    choicesEl.innerHTML = '';
+    q.choices.forEach((choice, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.dataset.choiceIndex = String(i);
+      btn.textContent = choice;
+      choicesEl.appendChild(btn);
+    });
+
+    document.getElementById('choice-keypad-next').classList.add('hidden');
+    state.phase = 'input';
+    state.firstAttemptDone = false;
+  }
+
+  function handleChoiceSelect(index) {
+    if (state.phase === 'feedback') return;
+    const q = state.questions[state.index];
+    const isCorrect = index === q.answerIndex;
+
+    if (!state.firstAttemptDone) {
+      state.firstAttemptDone = true;
+      if (isCorrect) state.correctCount++;
+    }
+
+    const buttons = document.querySelectorAll('#choice-choices .choice-btn');
+    const fb = document.getElementById('choice-feedback');
+
+    if (isCorrect) {
+      state.phase = 'feedback';
+      buttons.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === q.answerIndex) btn.classList.add('correct');
+        else if (!btn.classList.contains('wrong')) btn.classList.add('dim');
+      });
+      fb.textContent = 'せいかい！';
+      fb.className = 'feedback correct';
+      SoundFx.correct();
+      document.getElementById('choice-score-text').textContent = `〇 ${state.correctCount}`;
+      document.getElementById('choice-keypad-next').classList.remove('hidden');
+    } else {
+      // 誤答: 誤りは wrong で無効化、他は dim、正解のみ押せる状態にして
+      // 学習者に正しい選択肢を能動的に確認させる（kanji/clock と同じ挙動）。
+      state.phase = 'retry';
+      buttons.forEach((btn, i) => {
+        if (i === q.answerIndex) {
+          btn.classList.add('correct');
+          btn.disabled = false;
+        } else if (i === index) {
+          btn.classList.add('wrong');
+          btn.disabled = true;
+        } else {
+          btn.classList.add('dim');
+          btn.disabled = true;
+        }
+      });
+      fb.textContent = `こたえは「${q.choices[q.answerIndex]}」`;
+      fb.className = 'feedback wrong';
+      SoundFx.wrong();
+      document.getElementById('choice-score-text').textContent = `〇 ${state.correctCount}`;
+    }
+  }
+
+  function nextChoiceQuestion() {
+    state.index++;
+    if (state.index >= QUESTIONS_PER_SET) {
+      finishQuiz();
+    } else {
+      renderChoiceQuestion();
     }
   }
 
@@ -1431,17 +1676,27 @@
     const daily = days.map(d => ({ ...d, count: sumDay(stats[d.key]) }));
     renderBarChart('chart-total', daily, d => d.count, d => `${d.month}/${d.day}`);
 
-    // モード別（きょう）
+    // モード別（きょう）。モード数が増えたので count>0 のもののみ表示する。
+    // データが 1 件もなければ renderBarChart 側の空表示にフォールバックする。
     const todayData = stats[today] || {};
     const modeData = [
       { key: 'add', label: 'たし', count: todayData.add?.c || 0 },
       { key: 'sub', label: 'ひき', count: todayData.sub?.c || 0 },
       { key: 'mul', label: 'かけ', count: todayData.mul?.c || 0 },
+      { key: 'ten-comp', label: '10あ', count: todayData['ten-comp']?.c || 0 },
+      { key: 'parity', label: '偶奇', count: todayData.parity?.c || 0 },
       { key: 'k2r', label: '漢→読', count: todayData.k2r?.c || 0 },
       { key: 'r2k', label: '読→漢', count: todayData.r2k?.c || 0 },
       { key: 'ksent', label: '文中', count: todayData.ksent?.c || 0 },
+      { key: 'hira-to-kata', label: 'あ→ア', count: todayData['hira-to-kata']?.c || 0 },
+      { key: 'kata-to-hira', label: 'ア→あ', count: todayData['kata-to-hira']?.c || 0 },
+      { key: 'antonym', label: '反対', count: todayData.antonym?.c || 0 },
+      { key: 'ja-to-en', label: '日→英', count: todayData['ja-to-en']?.c || 0 },
+      { key: 'en-to-ja', label: '英→日', count: todayData['en-to-ja']?.c || 0 },
       { key: 'clock', label: 'とけい', count: todayData.clock?.c || 0 },
-    ];
+      { key: 'season', label: '季節', count: todayData.season?.c || 0 },
+      { key: 'group', label: '仲間', count: todayData.group?.c || 0 },
+    ].filter(d => d.count > 0);
     renderBarChart('chart-mode-today', modeData, d => d.count, d => d.label);
   }
   function renderBarChart(containerId, data, getValue, getLabel) {
@@ -1470,6 +1725,7 @@
       if (mode === 'mul') showScreen('mulMenu');
       else if (mode === 'kanji') showScreen('kanjiMenu');
       else if (mode === 'clock') startClockQuiz();
+      else if (CHOICE_GENERATORS[mode]) startChoiceQuiz(mode);
       else startQuiz(mode);
     });
   });
@@ -1499,6 +1755,16 @@
       if (btn.dataset.clockKey === 'next') nextClockQuestion();
     });
   });
+  document.getElementById('choice-choices').addEventListener('click', (e) => {
+    const btn = e.target.closest('.choice-btn');
+    if (!btn) return;
+    handleChoiceSelect(parseInt(btn.dataset.choiceIndex, 10));
+  });
+  document.querySelectorAll('[data-choice-key]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.choiceKey === 'next') nextChoiceQuestion();
+    });
+  });
   document.getElementById('link-stats').addEventListener('click', (e) => {
     e.preventDefault();
     showScreen('stats');
@@ -1518,6 +1784,7 @@
       if (dest === 'restart') {
         if (state.category === 'kanji') startKanjiQuiz(state.mode);
         else if (state.category === 'clock') startClockQuiz();
+        else if (state.category === 'choice') startChoiceQuiz(state.mode);
         else startQuiz(state.mode, state.submode);
       } else {
         showScreen(dest);
