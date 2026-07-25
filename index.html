@@ -364,6 +364,11 @@
     margin-top: auto;
     padding-top: 12px;
   }
+  /* デスクトップ (マウス操作) では画面が縦長で下寄せだと空白が大きい。
+     問題直下に上寄せする。iPhone / iPad は従来どおり下端に張り付く。 */
+  @media (hover: hover) and (pointer: fine) {
+    .keypad { margin-top: 12px; }
+  }
   .key {
     background: var(--panel);
     border: 1px solid var(--border);
