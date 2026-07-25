@@ -428,6 +428,16 @@
     box-shadow: var(--shadow);
     padding: 16px;
     margin-bottom: 16px;
+  }
+  .summary-heading {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--muted);
+    text-align: center;
+    margin: 0 0 10px;
+    letter-spacing: 0.05em;
+  }
+  .summary-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
@@ -435,6 +445,7 @@
   }
   .stat-item .label { font-size: 12px; color: var(--muted); }
   .stat-item .value { font-size: 22px; font-weight: bold; color: var(--primary-dark); }
+  .stat-item .value.time { font-size: 20px; letter-spacing: -0.02em; }
   .chart-card {
     background: var(--panel);
     border-radius: var(--radius);
@@ -497,18 +508,6 @@
     text-align: center;
     color: var(--muted);
     padding: 24px 0;
-  }
-  .danger-link {
-    text-align: center;
-    margin-top: 8px;
-  }
-  .danger-link button {
-    background: transparent;
-    border: none;
-    color: var(--wrong);
-    font-size: 13px;
-    cursor: pointer;
-    padding: 8px;
   }
 </style>
 </head>
@@ -741,7 +740,7 @@
   <section id="screen-result" class="screen hidden">
     <div class="result-card">
       <div class="result-mode" id="result-mode"></div>
-      <div class="result-score"><span id="result-correct">0</span><span class="total"> / 10</span></div>
+      <div class="result-score"><span id="result-correct">0</span><span class="total"> / <span id="result-total">10</span></span></div>
       <div class="result-message" id="result-message"></div>
     </div>
     <div class="result-actions">
@@ -760,17 +759,38 @@
     </div>
 
     <div class="stats-summary">
-      <div class="stat-item">
-        <div class="label">きょう</div>
-        <div class="value" id="stat-today">0</div>
+      <div class="summary-heading">せいかい すう</div>
+      <div class="summary-grid">
+        <div class="stat-item">
+          <div class="label">きょう</div>
+          <div class="value" id="stat-today">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">7にちかん</div>
+          <div class="value" id="stat-week">0</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">ごうけい</div>
+          <div class="value" id="stat-total">0</div>
+        </div>
       </div>
-      <div class="stat-item">
-        <div class="label">7にちかん</div>
-        <div class="value" id="stat-week">0</div>
-      </div>
-      <div class="stat-item">
-        <div class="label">ごうけい</div>
-        <div class="value" id="stat-total">0</div>
+    </div>
+
+    <div class="stats-summary">
+      <div class="summary-heading">べんきょう じかん</div>
+      <div class="summary-grid">
+        <div class="stat-item">
+          <div class="label">きょう</div>
+          <div class="value time" id="stat-today-time">0秒</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">7にちかん</div>
+          <div class="value time" id="stat-week-time">0秒</div>
+        </div>
+        <div class="stat-item">
+          <div class="label">ごうけい</div>
+          <div class="value time" id="stat-total-time">0秒</div>
+        </div>
       </div>
     </div>
 
@@ -782,10 +802,6 @@
     <div class="chart-card">
       <div class="chart-title">モードべつ（きょう）</div>
       <div id="chart-mode-today"></div>
-    </div>
-
-    <div class="danger-link">
-      <button id="btn-clear-data">きろくを ぜんぶ けす</button>
     </div>
   </section>
 </div>
@@ -845,6 +861,14 @@
     group: generateGroup,
   };
   const QUESTIONS_PER_SET = 10;
+  // モード別の出題数。反射的に反復する量が少なすぎるモードだけ増やす。
+  const QUESTIONS_BY_MODE = { add: 20, sub: 20 };
+  function questionsForMode(mode) {
+    return QUESTIONS_BY_MODE[mode] || QUESTIONS_PER_SET;
+  }
+  // 1問あたりの計上時間の上限（秒）。放置・タブ切替・意図的な引き伸ばしで
+  // 学習時間を水増しできないよう、裏側で1問=最大10秒として集計する。
+  const MAX_SEC_PER_QUESTION = 10;
   const STORAGE_KEY = 'flushdrill_stats_v1';
   const MUTE_KEY = 'flushdrill_muted_v1';
 
@@ -914,12 +938,26 @@
     submode: null,
     submodeLabel: '',
     questions: [],
+    total: QUESTIONS_PER_SET, // モードごとの1セット問題数
     index: 0,
     correctCount: 0,
     input: '',
     phase: 'input', // 'input' | 'retry' | 'feedback'
     firstAttemptDone: false, // 誤答時のリトライで二重加点しないためのフラグ
+    questionStartAt: 0, // 現在の問題を表示した時刻 (performance.now)
+    sessionElapsedSec: 0, // このセットで積み上げた学習時間 (秒, 1問あたり MAX_SEC_PER_QUESTION でキャップ)
   };
+
+  // 現在の問題の経過時間を上限で丸めて sessionElapsedSec に加算する。
+  // 初回submit時にのみ呼ぶ想定。呼んだあとは questionStartAt を 0 にして
+  // 二重計上を防ぐ。
+  function recordQuestionElapsed() {
+    if (!state.questionStartAt) return;
+    const elapsedSec = (performance.now() - state.questionStartAt) / 1000;
+    const capped = Math.min(Math.max(elapsedSec, 0), MAX_SEC_PER_QUESTION);
+    state.sessionElapsedSec += capped;
+    state.questionStartAt = 0;
+  }
 
   const MUL_SUBMODES = {
     'row-1': '1の だん', 'row-2': '2の だん', 'row-3': '3の だん',
@@ -961,8 +999,9 @@
     if (mode === 'mul' && submode) {
       return generateMulSet(submode);
     }
+    const n = questionsForMode(mode);
     const set = [];
-    for (let i = 0; i < QUESTIONS_PER_SET; i++) {
+    for (let i = 0; i < n; i++) {
       set.push(generateQuestion(mode));
     }
     return set;
@@ -1025,19 +1064,21 @@
     state.submode = submode || null;
     state.submodeLabel = (mode === 'mul' && submode) ? (MUL_SUBMODES[submode] || '') : '';
     state.questions = generateSet(mode, state.submode);
+    state.total = state.questions.length;
     state.index = 0;
     state.correctCount = 0;
     state.input = '';
     state.phase = 'input';
+    state.sessionElapsedSec = 0;
     showScreen('quiz');
     renderQuestion();
   }
   function renderQuestion() {
     const q = state.questions[state.index];
     document.getElementById('expr').textContent = `${q.a} ${q.symbol} ${q.b} =`;
-    document.getElementById('quiz-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
+    document.getElementById('quiz-progress-text').textContent = `${state.index + 1} / ${state.total}`;
     document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+    document.getElementById('progress-fill').style.width = `${(state.index / state.total) * 100}%`;
     const subEl = document.getElementById('quiz-submode-label');
     if (state.submodeLabel) {
       // ランダム2は選ばれた段を表示、それ以外はそのままのラベル
@@ -1058,6 +1099,7 @@
     document.getElementById('keypad-next').classList.add('hidden');
     state.phase = 'input';
     state.firstAttemptDone = false;
+    state.questionStartAt = performance.now();
   }
   function renderInput() {
     const box = document.getElementById('answer-box');
@@ -1116,6 +1158,7 @@
     // スコアは初回試行のみ。誤答→リトライで正解しても加点しない。
     if (!state.firstAttemptDone) {
       state.firstAttemptDone = true;
+      recordQuestionElapsed();
       if (isCorrect) state.correctCount++;
     }
 
@@ -1147,20 +1190,21 @@
   function nextQuestion() {
     state.index++;
     state.input = '';
-    if (state.index >= QUESTIONS_PER_SET) {
+    if (state.index >= state.total) {
       finishQuiz();
     } else {
       renderQuestion();
     }
   }
   function finishQuiz() {
-    saveResult(state.mode, state.correctCount, QUESTIONS_PER_SET);
+    saveResult(state.mode, state.correctCount, state.total, state.sessionElapsedSec);
     const fillId = state.category === 'kanji' ? 'kanji-progress-fill'
       : state.category === 'clock' ? 'clock-progress-fill'
       : state.category === 'choice' ? 'choice-progress-fill'
       : 'progress-fill';
     document.getElementById(fillId).style.width = '100%';
     document.getElementById('result-correct').textContent = state.correctCount;
+    document.getElementById('result-total').textContent = state.total;
     // submode 詳細は かけざん 系のみ。他カテゴリでは state.submodeLabel が
     // モード名そのものなので重複表示を避ける。
     const submode = (state.category === 'arith' && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
@@ -1198,7 +1242,7 @@
   };
 
   function generateKanjiSet(mode, dict) {
-    const entries = shuffle(dict.entries).slice(0, QUESTIONS_PER_SET);
+    const entries = shuffle(dict.entries).slice(0, questionsForMode(mode));
     return entries.map(e => KANJI_GENERATORS[mode](e, dict));
   }
 
@@ -1219,9 +1263,11 @@
     state.submode = null;
     state.submodeLabel = MODES[mode].label;
     state.questions = generateKanjiSet(mode, kanjiDict);
+    state.total = state.questions.length;
     state.index = 0;
     state.correctCount = 0;
     state.phase = 'input';
+    state.sessionElapsedSec = 0;
     showScreen('kanjiQuiz');
     renderKanjiQuestion();
   }
@@ -1247,9 +1293,9 @@
         `<div class="kanji-sub-question">「${target}」の よみは？</div>`;
     }
 
-    document.getElementById('kanji-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
+    document.getElementById('kanji-progress-text').textContent = `${state.index + 1} / ${state.total}`;
     document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('kanji-progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+    document.getElementById('kanji-progress-fill').style.width = `${(state.index / state.total) * 100}%`;
     document.getElementById('kanji-submode-label').textContent = state.submodeLabel;
 
     const fb = document.getElementById('kanji-feedback');
@@ -1269,6 +1315,7 @@
     document.getElementById('kanji-keypad-next').classList.add('hidden');
     state.phase = 'input';
     state.firstAttemptDone = false;
+    state.questionStartAt = performance.now();
   }
 
   function handleKanjiChoice(index) {
@@ -1279,6 +1326,7 @@
     // スコアは初回のみ。リトライで正解しても加点しない。
     if (!state.firstAttemptDone) {
       state.firstAttemptDone = true;
+      recordQuestionElapsed();
       if (isCorrect) state.correctCount++;
     }
 
@@ -1322,7 +1370,7 @@
 
   function nextKanjiQuestion() {
     state.index++;
-    if (state.index >= QUESTIONS_PER_SET) {
+    if (state.index >= state.total) {
       finishQuiz();
     } else {
       renderKanjiQuestion();
@@ -1341,12 +1389,13 @@
   function generateChoiceSet(mode) {
     const gen = CHOICE_GENERATORS[mode];
     if (!gen) throw new Error(`unknown choice mode: ${mode}`);
+    const n = questionsForMode(mode);
     // 同じ問題が連続すると単調なので、生成した問題の question キーで重複を軽く避ける。
     // 完全なユニーク保証は難しいので best-effort（母集団が少ないモードでは重複してもよい）。
     const set = [];
     const seen = new Set();
     let attempts = 0;
-    while (set.length < QUESTIONS_PER_SET && attempts < QUESTIONS_PER_SET * 6) {
+    while (set.length < n && attempts < n * 6) {
       attempts++;
       const q = gen();
       const key = q.question;
@@ -1354,7 +1403,7 @@
       seen.add(key);
       set.push(q);
     }
-    while (set.length < QUESTIONS_PER_SET) set.push(gen());
+    while (set.length < n) set.push(gen());
     return set;
   }
 
@@ -1364,9 +1413,11 @@
     state.submode = null;
     state.submodeLabel = MODES[mode].label;
     state.questions = generateChoiceSet(mode);
+    state.total = state.questions.length;
     state.index = 0;
     state.correctCount = 0;
     state.phase = 'input';
+    state.sessionElapsedSec = 0;
     showScreen('choiceQuiz');
     renderChoiceQuestion();
   }
@@ -1377,9 +1428,9 @@
     prompt.className = 'choice-prompt ' + choicePromptSize(q.question);
     prompt.textContent = q.question;
 
-    document.getElementById('choice-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
+    document.getElementById('choice-progress-text').textContent = `${state.index + 1} / ${state.total}`;
     document.getElementById('choice-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('choice-progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+    document.getElementById('choice-progress-fill').style.width = `${(state.index / state.total) * 100}%`;
     document.getElementById('choice-submode-label').textContent = state.submodeLabel;
 
     const fb = document.getElementById('choice-feedback');
@@ -1399,6 +1450,7 @@
     document.getElementById('choice-keypad-next').classList.add('hidden');
     state.phase = 'input';
     state.firstAttemptDone = false;
+    state.questionStartAt = performance.now();
   }
 
   function handleChoiceSelect(index) {
@@ -1408,6 +1460,7 @@
 
     if (!state.firstAttemptDone) {
       state.firstAttemptDone = true;
+      recordQuestionElapsed();
       if (isCorrect) state.correctCount++;
     }
 
@@ -1451,7 +1504,7 @@
 
   function nextChoiceQuestion() {
     state.index++;
-    if (state.index >= QUESTIONS_PER_SET) {
+    if (state.index >= state.total) {
       finishQuiz();
     } else {
       renderChoiceQuestion();
@@ -1479,8 +1532,9 @@
     return { h, m, options, answerIndex };
   }
   function generateClockSet() {
+    const n = questionsForMode('clock');
     const set = [];
-    for (let i = 0; i < QUESTIONS_PER_SET; i++) set.push(generateClockQuestion());
+    for (let i = 0; i < n; i++) set.push(generateClockQuestion());
     return set;
   }
   function renderClockFace(h, m) {
@@ -1523,18 +1577,20 @@
     state.submode = null;
     state.submodeLabel = '';
     state.questions = generateClockSet();
+    state.total = state.questions.length;
     state.index = 0;
     state.correctCount = 0;
     state.phase = 'input';
+    state.sessionElapsedSec = 0;
     showScreen('clockQuiz');
     renderClockQuestion();
   }
   function renderClockQuestion() {
     const q = state.questions[state.index];
     document.getElementById('clock-face').innerHTML = renderClockFace(q.h, q.m);
-    document.getElementById('clock-progress-text').textContent = `${state.index + 1} / ${QUESTIONS_PER_SET}`;
+    document.getElementById('clock-progress-text').textContent = `${state.index + 1} / ${state.total}`;
     document.getElementById('clock-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('clock-progress-fill').style.width = `${(state.index / QUESTIONS_PER_SET) * 100}%`;
+    document.getElementById('clock-progress-fill').style.width = `${(state.index / state.total) * 100}%`;
 
     const fb = document.getElementById('clock-feedback');
     fb.textContent = '';
@@ -1553,6 +1609,7 @@
     document.getElementById('clock-keypad-next').classList.add('hidden');
     state.phase = 'input';
     state.firstAttemptDone = false;
+    state.questionStartAt = performance.now();
   }
   function handleClockChoice(index) {
     if (state.phase === 'feedback') return;
@@ -1561,6 +1618,7 @@
 
     if (!state.firstAttemptDone) {
       state.firstAttemptDone = true;
+      recordQuestionElapsed();
       if (isCorrect) state.correctCount++;
     }
 
@@ -1601,7 +1659,7 @@
   }
   function nextClockQuestion() {
     state.index++;
-    if (state.index >= QUESTIONS_PER_SET) {
+    if (state.index >= state.total) {
       finishQuiz();
     } else {
       renderClockQuestion();
@@ -1630,14 +1688,28 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
     } catch (e) { /* quota等は無視 */ }
   }
-  function saveResult(mode, correct, total) {
+  function saveResult(mode, correct, total, elapsedSec) {
     const stats = loadStats();
     const key = todayKey();
     if (!stats[key]) stats[key] = {};
-    if (!stats[key][mode]) stats[key][mode] = { c: 0, t: 0 };
+    if (!stats[key][mode]) stats[key][mode] = { c: 0, t: 0, s: 0 };
     stats[key][mode].c += correct;
     stats[key][mode].t += total;
+    // s は秒 (整数)。1問=最大 MAX_SEC_PER_QUESTION 秒のキャップは呼び出し側で
+    // 掛けているので、ここでは受け取った値をそのまま丸めて足す。
+    stats[key][mode].s = (stats[key][mode].s || 0) + Math.round(elapsedSec || 0);
     saveStats(stats);
+  }
+
+  function formatDuration(sec) {
+    const s = Math.max(0, Math.round(sec || 0));
+    if (s < 60) return `${s}秒`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    if (m < 60) return rem === 0 ? `${m}分` : `${m}分${rem}秒`;
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return mm === 0 ? `${h}時間` : `${h}時間${mm}分`;
   }
 
   // --- 統計画面レンダリング ---
@@ -1658,19 +1730,27 @@
     }
 
     const sumDay = (v) => Object.values(v || {}).reduce((s, m) => s + (m?.c || 0), 0);
+    const sumDaySec = (v) => Object.values(v || {}).reduce((s, m) => s + (m?.s || 0), 0);
     let todayCorrect = 0, weekCorrect = 0, totalCorrect = 0;
+    let todaySec = 0, weekSec = 0, totalSec = 0;
     Object.entries(stats).forEach(([k, v]) => {
       const c = sumDay(v);
+      const s = sumDaySec(v);
       totalCorrect += c;
-      if (k === today) todayCorrect = c;
+      totalSec += s;
+      if (k === today) { todayCorrect = c; todaySec = s; }
     });
     days.slice(-7).forEach(d => {
       weekCorrect += sumDay(stats[d.key]);
+      weekSec += sumDaySec(stats[d.key]);
     });
 
     document.getElementById('stat-today').textContent = todayCorrect;
     document.getElementById('stat-week').textContent = weekCorrect;
     document.getElementById('stat-total').textContent = totalCorrect;
+    document.getElementById('stat-today-time').textContent = formatDuration(todaySec);
+    document.getElementById('stat-week-time').textContent = formatDuration(weekSec);
+    document.getElementById('stat-total-time').textContent = formatDuration(totalSec);
 
     // 14日棒グラフ
     const daily = days.map(d => ({ ...d, count: sumDay(stats[d.key]) }));
@@ -1793,12 +1873,6 @@
   });
   document.querySelectorAll('.key').forEach(k => {
     k.addEventListener('click', () => pressKey(k.dataset.key));
-  });
-  document.getElementById('btn-clear-data').addEventListener('click', () => {
-    if (confirm('きろくを ぜんぶ けしますか？')) {
-      localStorage.removeItem(STORAGE_KEY);
-      renderStats();
-    }
   });
 
   showScreen('menu');
