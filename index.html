@@ -104,6 +104,8 @@
   .mode-btn[data-mode="clock"] { border-color: #ba68c8; }
   .mode-btn[data-mode="season"] { border-color: #f8bbd0; }
   .mode-btn[data-mode="group"] { border-color: #4fc3f7; }
+  .mode-btn[data-mode="train-h2k"] { border-color: #7986cb; }
+  .mode-btn[data-mode="train-k2h"] { border-color: #5c6bc0; }
 
   /* --- とけい クイズ --- */
   .clock-face {
@@ -212,6 +214,18 @@
   .choice-btn.correct { background: #e8f5e9; border-color: var(--correct); color: var(--correct); }
   .choice-btn.wrong { background: #ffebee; border-color: var(--wrong); color: var(--wrong); }
   .choice-btn.dim { opacity: 0.5; }
+
+  /* 正解時に entry の説明文を表示する行。generator が description を返した時のみ内容が入る。
+     :empty で非表示にすることで、description を返さない既存モードでは領域を確保しない
+     (レイアウトシフト最小化と既存見た目維持の両立)。 */
+  .choice-description {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 4px 12px 0;
+    text-align: left;
+  }
+  .choice-description:empty { display: none; }
 
   /* --- かけざん サブメニュー --- */
   .submenu-title {
@@ -577,6 +591,15 @@
         <span>なかまわけ</span><span class="emoji">🍎</span>
       </button>
     </div>
+    <div class="category-heading">でんしゃ</div>
+    <div class="mode-buttons">
+      <button class="mode-btn" data-mode="train-h2k">
+        <span>ひらがな ➡ かんじ (でんしゃ)</span><span class="emoji">🚃</span>
+      </button>
+      <button class="mode-btn" data-mode="train-k2h">
+        <span>かんじ ➡ ひらがな (でんしゃ)</span><span class="emoji">🚄</span>
+      </button>
+    </div>
     <div class="link-row">
       <a href="#" id="link-stats">きろくを みる ›</a>
       <button type="button" class="sound-toggle" id="sound-toggle" aria-label="おと オン/オフ">🔊 おと</button>
@@ -675,6 +698,7 @@
     <div class="question">
       <div id="choice-prompt" class="choice-prompt"></div>
       <div class="feedback" id="choice-feedback"></div>
+      <div class="choice-description" id="choice-description"></div>
     </div>
 
     <div class="choices" id="choice-choices"></div>
@@ -833,6 +857,10 @@
     generateSeason,
     generateGroup,
   } from './src/seikatsu/generator.mjs';
+  import {
+    generateTrainHiraToKanji,
+    generateTrainKanjiToHira,
+  } from './src/densha/generator.mjs';
 
   const MODES = {
     add: { label: 'たしざん', symbol: '＋' },
@@ -851,6 +879,8 @@
     clock: { label: 'とけい' },
     season: { label: 'きせつの ことば' },
     group: { label: 'なかまわけ' },
+    'train-h2k': { label: 'ひらがな ➡ かんじ (でんしゃ)' },
+    'train-k2h': { label: 'かんじ ➡ ひらがな (でんしゃ)' },
   };
 
   // 汎用 4択画面を使うモード。生成器を集約。
@@ -864,6 +894,8 @@
     'en-to-ja': generateEnToJa,
     season: generateSeason,
     group: generateGroup,
+    'train-h2k': generateTrainHiraToKanji,
+    'train-k2h': generateTrainKanjiToHira,
   };
   const QUESTIONS_PER_SET = 10;
   // モード別の出題数。反射的に反復する量が少なすぎるモードだけ増やす。
@@ -1441,6 +1473,7 @@
     const fb = document.getElementById('choice-feedback');
     fb.textContent = '';
     fb.className = 'feedback';
+    document.getElementById('choice-description').textContent = '';
 
     const choicesEl = document.getElementById('choice-choices');
     choicesEl.innerHTML = '';
@@ -1482,6 +1515,9 @@
       fb.textContent = 'せいかい！';
       fb.className = 'feedback correct';
       SoundFx.correct();
+      const desc = document.getElementById('choice-description');
+      // description を返さない既存モードでは空のまま (:empty で display:none)。
+      if (q.description) desc.textContent = q.description;
       document.getElementById('choice-score-text').textContent = `〇 ${state.correctCount}`;
       document.getElementById('choice-keypad-next').classList.remove('hidden');
     } else {
