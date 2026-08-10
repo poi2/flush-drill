@@ -15,12 +15,16 @@
  *                                   kanji-sent サブタイプでは sentence/target を代わりに使うため省略される。
  * @property {string[]} choices    ボタンに表示するラベル 4 個
  * @property {number}   answerIndex 正解の choices インデックス (0..3)
+ * @property {'choice'|'sentence'} [type]  kanji generator 固有の内部タグ。Presenter は使わず
+ *                                   generator 側の分岐 (sentence-reading と k2r/r2k を分ける) と
+ *                                   既存テストとの後方互換のためだけに残っている。上の `kind` とは別物。
  * @property {string}   [description]  正解時に補足表示する説明（電車の駅説明など）
  * @property {string}   [sentence] kanji-sent 出題の文章
  * @property {string}   [target]   kanji-sent 出題の対象語（sentence 中でハイライトする）
  * @property {string}   [kanji]    kanji 出題のもとエントリ（デバッグ / 統計用）
  * @property {number}   [h]        clock 出題の時
  * @property {number}   [m]        clock 出題の分
+ * @property {Array<{h:number,m:number}>} [options]  clock 出題の choice ごとの h/m 詳細
  */
 
 /**
