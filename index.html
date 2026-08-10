@@ -861,6 +861,11 @@
     generateTrainHiraToKanji,
     generateTrainKanjiToHira,
   } from './src/densha/generator.mjs';
+  import {
+    summarize,
+    modeBreakdown,
+    MODE_BREAKDOWN_DEFS,
+  } from './src/stats/index.mjs';
 
   const MODES = {
     add: { label: 'たしざん', symbol: '＋' },
@@ -1770,54 +1775,19 @@
       days.push({ key: `${y}-${m}-${day}`, month: d.getMonth() + 1, day: d.getDate() });
     }
 
-    const sumDay = (v) => Object.values(v || {}).reduce((s, m) => s + (m?.c || 0), 0);
-    const sumDaySec = (v) => Object.values(v || {}).reduce((s, m) => s + (m?.s || 0), 0);
-    let todayCorrect = 0, weekCorrect = 0, totalCorrect = 0;
-    let todaySec = 0, weekSec = 0, totalSec = 0;
-    Object.entries(stats).forEach(([k, v]) => {
-      const c = sumDay(v);
-      const s = sumDaySec(v);
-      totalCorrect += c;
-      totalSec += s;
-      if (k === today) { todayCorrect = c; todaySec = s; }
-    });
-    days.slice(-7).forEach(d => {
-      weekCorrect += sumDay(stats[d.key]);
-      weekSec += sumDaySec(stats[d.key]);
-    });
+    const s = summarize(stats, today, days);
+    document.getElementById('stat-today').textContent = s.todayCorrect;
+    document.getElementById('stat-week').textContent = s.weekCorrect;
+    document.getElementById('stat-total').textContent = s.totalCorrect;
+    document.getElementById('stat-today-time').textContent = formatDuration(s.todaySec);
+    document.getElementById('stat-week-time').textContent = formatDuration(s.weekSec);
+    document.getElementById('stat-total-time').textContent = formatDuration(s.totalSec);
 
-    document.getElementById('stat-today').textContent = todayCorrect;
-    document.getElementById('stat-week').textContent = weekCorrect;
-    document.getElementById('stat-total').textContent = totalCorrect;
-    document.getElementById('stat-today-time').textContent = formatDuration(todaySec);
-    document.getElementById('stat-week-time').textContent = formatDuration(weekSec);
-    document.getElementById('stat-total-time').textContent = formatDuration(totalSec);
+    renderBarChart('chart-total', s.daily, d => d.count, d => `${d.month}/${d.day}`);
 
-    // 14日棒グラフ
-    const daily = days.map(d => ({ ...d, count: sumDay(stats[d.key]) }));
-    renderBarChart('chart-total', daily, d => d.count, d => `${d.month}/${d.day}`);
-
-    // モード別（きょう）。モード数が増えたので count>0 のもののみ表示する。
+    // モード別（きょう）。count>0 のもののみ表示する（既存挙動）。
     // データが 1 件もなければ renderBarChart 側の空表示にフォールバックする。
-    const todayData = stats[today] || {};
-    const modeData = [
-      { key: 'add', label: 'たし', count: todayData.add?.c || 0 },
-      { key: 'sub', label: 'ひき', count: todayData.sub?.c || 0 },
-      { key: 'mul', label: 'かけ', count: todayData.mul?.c || 0 },
-      { key: 'ten-comp', label: '10あ', count: todayData['ten-comp']?.c || 0 },
-      { key: 'parity', label: '偶奇', count: todayData.parity?.c || 0 },
-      { key: 'k2r', label: '漢→読', count: todayData.k2r?.c || 0 },
-      { key: 'r2k', label: '読→漢', count: todayData.r2k?.c || 0 },
-      { key: 'ksent', label: '文中', count: todayData.ksent?.c || 0 },
-      { key: 'hira-to-kata', label: 'あ→ア', count: todayData['hira-to-kata']?.c || 0 },
-      { key: 'kata-to-hira', label: 'ア→あ', count: todayData['kata-to-hira']?.c || 0 },
-      { key: 'antonym', label: '反対', count: todayData.antonym?.c || 0 },
-      { key: 'ja-to-en', label: '日→英', count: todayData['ja-to-en']?.c || 0 },
-      { key: 'en-to-ja', label: '英→日', count: todayData['en-to-ja']?.c || 0 },
-      { key: 'clock', label: 'とけい', count: todayData.clock?.c || 0 },
-      { key: 'season', label: '季節', count: todayData.season?.c || 0 },
-      { key: 'group', label: '仲間', count: todayData.group?.c || 0 },
-    ].filter(d => d.count > 0);
+    const modeData = modeBreakdown(stats[today] || {}, MODE_BREAKDOWN_DEFS);
     renderBarChart('chart-mode-today', modeData, d => d.count, d => d.label);
   }
   function renderBarChart(containerId, data, getValue, getLabel) {
