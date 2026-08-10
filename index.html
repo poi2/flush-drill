@@ -1364,7 +1364,10 @@
           prompt.appendChild(div);
         } else {
           // sentence 出題は target マーキングを <span> で囲む必要があるため、
-          // Presenter 抽象で唯一 innerHTML を使う経路。escapeHtml で XSS を塞ぐ。
+          // Presenter 抽象で唯一 innerHTML を使う経路。
+          // sentence と target を先に escapeHtml しているので、split のキー
+          // (escape 済み target) と split 対象 (escape 済み sentence) の間で
+          // 特殊文字が食い違うことはない = 二重 escape にはならない。
           prompt.classList.add('kind-sent');
           const target = escapeHtml(q.target);
           const marked = escapeHtml(q.sentence).split(target).join(
