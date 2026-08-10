@@ -70,4 +70,6 @@ export const MODE_BREAKDOWN_DEFS = [
   { key: 'clock', label: 'とけい' },
   { key: 'season', label: '季節' },
   { key: 'group', label: '仲間' },
+  { key: 'train-h2k', label: '駅→漢' },
+  { key: 'train-k2h', label: '漢→駅' },
 ];
