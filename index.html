@@ -1018,6 +1018,13 @@
     if (name === 'stats') renderStats();
   }
 
+  // ChoicePresenter.start は async (kanji dict のロード完了待ちなど) のため、
+  // click handler から fire-and-forget で呼ぶと rejection が握り潰される。
+  // ここを通す約束にしておくと、想定外の例外が起きても console に出る。
+  function launchPresenter(maybePromise) {
+    Promise.resolve(maybePromise).catch((e) => console.error('presenter launch failed', e));
+  }
+
   // --- キーパッド系 Presenter (add / sub / mul) ---
   // 入力方式が本質的に 4 択と異なるため別クラスにしているが、共通
   // ライフサイクル (recordQuestionElapsed, saveResult, SoundFx) は
@@ -1693,13 +1700,13 @@
     if (m.subMenu === 'mul') showScreen('mulMenu');
     else if (m.subMenu === 'kanji') showScreen('kanjiMenu');
     else if (m.kind === 'keypad') KeypadPresenter.start(m.key);
-    else ChoicePresenter.start(m.key); // clock / choice / kanji (subMenu 経由)
+    else launchPresenter(ChoicePresenter.start(m.key)); // clock / choice
   });
   document.querySelectorAll('[data-sub]').forEach(btn => {
     btn.addEventListener('click', () => KeypadPresenter.start('mul', btn.dataset.sub));
   });
   document.querySelectorAll('[data-kanji-mode]').forEach(btn => {
-    btn.addEventListener('click', () => ChoicePresenter.start(btn.dataset.kanjiMode));
+    btn.addEventListener('click', () => launchPresenter(ChoicePresenter.start(btn.dataset.kanjiMode)));
   });
   // 4 択系 3 セクションはいずれも ChoicePresenter に dispatch。
   // Presenter 側で state.mode から variant を引くので、どのコンテナから
@@ -1732,8 +1739,9 @@
       const dest = el.dataset.goto;
       if (dest === 'restart') {
         // state.presenter に一元化 (D-5)。Presenter が違えば submode の
-        // 有無だけで interface が保たれる。
-        state.presenter?.start(state.mode, state.submode);
+        // 有無だけで interface が保たれる。ChoicePresenter.start は async
+        // なので rejection を握り潰さないよう launchPresenter で拾う。
+        launchPresenter(state.presenter?.start(state.mode, state.submode));
       } else {
         showScreen(dest);
       }
