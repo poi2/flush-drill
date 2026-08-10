@@ -1072,7 +1072,11 @@
     _renderInput() {
       const box = document.getElementById('answer-box');
       if (state.input === '') {
-        box.innerHTML = '<span class="answer-placeholder">?</span>';
+        box.textContent = '';
+        const ph = document.createElement('span');
+        ph.className = 'answer-placeholder';
+        ph.textContent = '?';
+        box.appendChild(ph);
       } else {
         box.textContent = state.input;
       }
@@ -1338,13 +1342,22 @@
       renderPrompt(q) {
         const prompt = document.getElementById('kanji-prompt');
         prompt.className = 'kanji-prompt';
+        prompt.textContent = '';
         if (q.subtype === 'kanji-to-reading') {
           prompt.classList.add('kind-k2r');
-          prompt.innerHTML = `<div class="kanji-char">${escapeHtml(q.question)}</div>`;
+          const div = document.createElement('div');
+          div.className = 'kanji-char';
+          div.textContent = q.question;
+          prompt.appendChild(div);
         } else if (q.subtype === 'reading-to-kanji') {
           prompt.classList.add('kind-r2k');
-          prompt.innerHTML = `<div class="kanji-reading">${escapeHtml(q.question)}</div>`;
+          const div = document.createElement('div');
+          div.className = 'kanji-reading';
+          div.textContent = q.question;
+          prompt.appendChild(div);
         } else {
+          // sentence 出題は target マーキングを <span> で囲む必要があるため、
+          // Presenter 抽象で唯一 innerHTML を使う経路。escapeHtml で XSS を塞ぐ。
           prompt.classList.add('kind-sent');
           const target = escapeHtml(q.target);
           const marked = escapeHtml(q.sentence).split(target).join(
