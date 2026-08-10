@@ -50,26 +50,6 @@ export function modeBreakdown(todayData, modeDefs) {
     .filter(d => d.count > 0);
 }
 
-// モード別グラフのラベル定義。Phase B のレジストリ導入で
-// レジストリから派生させるようになるまでの過渡的な単一 source-of-truth。
-// ここに集約したことで、モード追加時に触る場所が 1 箇所に減っている。
-export const MODE_BREAKDOWN_DEFS = [
-  { key: 'add', label: 'たし' },
-  { key: 'sub', label: 'ひき' },
-  { key: 'mul', label: 'かけ' },
-  { key: 'ten-comp', label: '10あ' },
-  { key: 'parity', label: '偶奇' },
-  { key: 'k2r', label: '漢→読' },
-  { key: 'r2k', label: '読→漢' },
-  { key: 'ksent', label: '文中' },
-  { key: 'hira-to-kata', label: 'あ→ア' },
-  { key: 'kata-to-hira', label: 'ア→あ' },
-  { key: 'antonym', label: '反対' },
-  { key: 'ja-to-en', label: '日→英' },
-  { key: 'en-to-ja', label: '英→日' },
-  { key: 'clock', label: 'とけい' },
-  { key: 'season', label: '季節' },
-  { key: 'group', label: '仲間' },
-  { key: 'train-h2k', label: '駅→漢' },
-  { key: 'train-k2h', label: '漢→駅' },
-];
+// MODE_BREAKDOWN_DEFS は src/modes/registry.mjs 側に移動した
+// （レジストリ = モードの単一 source-of-truth からラベル定義を派生させるため）。
+// このモジュールは集計の純関数だけに責務を絞る。

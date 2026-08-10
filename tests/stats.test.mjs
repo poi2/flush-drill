@@ -1,11 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  summarize,
-  modeBreakdown,
-  MODE_BREAKDOWN_DEFS,
-} from '../src/stats/index.mjs';
+import { summarize, modeBreakdown } from '../src/stats/index.mjs';
+import { MODE_BREAKDOWN_DEFS } from '../src/modes/registry.mjs';
 
 // timezone に依存しないように UTC で 14 日ぶんを組み立てる。
 function makeDays(todayStr) {
