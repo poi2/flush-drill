@@ -890,7 +890,11 @@
   })();
 
   const state = {
-    category: null, // 'arith' | 'kanji'
+    // 現在アクティブな Presenter オブジェクト参照。KeypadPresenter か
+    // ChoicePresenter のいずれか。finishQuiz / restart / progress-fill が
+    // これを見て振る舞いを決める。分岐が Presenter 内に閉じたことで、
+    // 追加時にここを触る必要はない (D-5)。
+    presenter: null,
     mode: null,
     submode: null,
     submodeLabel: '',
@@ -1014,160 +1018,171 @@
     if (name === 'stats') renderStats();
   }
 
-  // --- クイズ ---
-  function startQuiz(mode, submode) {
-    state.category = 'arith';
-    state.mode = mode;
-    state.submode = submode || null;
-    state.submodeLabel = (mode === 'mul' && submode) ? (MUL_SUBMODES[submode] || '') : '';
-    state.questions = generateSet(mode, state.submode);
-    state.total = state.questions.length;
-    state.index = 0;
-    state.correctCount = 0;
-    state.input = '';
-    state.phase = 'input';
-    state.sessionElapsedSec = 0;
-    showScreen('quiz');
-    renderQuestion();
-  }
-  function renderQuestion() {
-    const q = state.questions[state.index];
-    document.getElementById('expr').textContent = `${q.a} ${q.symbol} ${q.b} =`;
-    document.getElementById('quiz-progress-text').textContent = `${state.index + 1} / ${state.total}`;
-    document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('progress-fill').style.width = `${(state.index / state.total) * 100}%`;
-    const subEl = document.getElementById('quiz-submode-label');
-    if (state.submodeLabel) {
-      // ランダム2は選ばれた段を表示、それ以外はそのままのラベル
-      if (state.submode === 'r2' && state.questions.length) {
-        subEl.textContent = `ランダム 2 ／ ${state.questions[0].a}の だん`;
-      } else {
-        subEl.textContent = state.submodeLabel;
-      }
-      subEl.classList.remove('hidden');
-    } else {
-      subEl.classList.add('hidden');
-    }
-    renderInput();
-    document.getElementById('feedback').textContent = '';
-    document.getElementById('feedback').className = 'feedback';
-    document.getElementById('answer-box').className = 'answer-box';
-    document.getElementById('keypad-input').classList.remove('hidden');
-    document.getElementById('keypad-next').classList.add('hidden');
-    state.phase = 'input';
-    state.firstAttemptDone = false;
-    state.questionStartAt = performance.now();
-  }
-  function renderInput() {
-    const box = document.getElementById('answer-box');
-    if (state.input === '') {
-      box.innerHTML = '<span class="answer-placeholder">?</span>';
-    } else {
-      box.textContent = state.input;
-    }
-    document.getElementById('btn-submit').disabled = (state.input === '');
-  }
-  function pressKey(key) {
-    if (state.phase === 'feedback') {
-      if (key === 'next') nextQuestion();
-      return;
-    }
-    if (state.phase === 'retry') {
-      // 誤答フィードバック中。数字/けす を押すと通常入力に戻り、
-      // 正解を打ち込ませてから けってい で進める。
-      if (/^\d$/.test(key)) {
-        state.phase = 'input';
-        state.input = key;
-        document.getElementById('answer-box').classList.remove('wrong');
-        renderInput();
-      } else if (key === 'clear') {
-        state.phase = 'input';
-        state.input = '';
-        document.getElementById('answer-box').classList.remove('wrong');
-        renderInput();
-      }
-      // submit は btn-submit が disabled のため無視される
-      return;
-    }
-    if (key === 'clear') {
+  // --- キーパッド系 Presenter (add / sub / mul) ---
+  // 入力方式が本質的に 4 択と異なるため別クラスにしているが、共通
+  // ライフサイクル (recordQuestionElapsed, saveResult, SoundFx) は
+  // ChoicePresenter と同じ形にそろえてある (finishQuiz / restart から
+  // 統一的に扱える)。
+  const KeypadPresenter = {
+    start(mode, submode) {
+      state.presenter = KeypadPresenter;
+      state.mode = mode;
+      state.submode = submode || null;
+      state.submodeLabel = (mode === 'mul' && submode) ? (MUL_SUBMODES[submode] || '') : '';
+      state.questions = generateSet(mode, state.submode);
+      state.total = state.questions.length;
+      state.index = 0;
+      state.correctCount = 0;
       state.input = '';
-      renderInput();
-      return;
-    }
-    if (key === 'submit') {
-      if (state.input === '') return;
-      submitAnswer();
-      return;
-    }
-    if (/^\d$/.test(key)) {
-      if (state.input.length >= 3) return;
-      if (state.input === '' && key === '0') { state.input = '0'; renderInput(); return; }
-      if (state.input === '0') { state.input = key; renderInput(); return; }
-      state.input += key;
-      renderInput();
-    }
-  }
-  function submitAnswer() {
-    const q = state.questions[state.index];
-    const user = parseInt(state.input, 10);
-    const isCorrect = user === q.ans;
+      state.phase = 'input';
+      state.sessionElapsedSec = 0;
+      showScreen('quiz');
+      KeypadPresenter.render();
+    },
 
-    // スコアは初回試行のみ。誤答→リトライで正解しても加点しない。
-    if (!state.firstAttemptDone) {
-      state.firstAttemptDone = true;
-      recordQuestionElapsed();
-      if (isCorrect) state.correctCount++;
-    }
+    render() {
+      const q = state.questions[state.index];
+      document.getElementById('expr').textContent = `${q.a} ${q.symbol} ${q.b} =`;
+      document.getElementById('quiz-progress-text').textContent = `${state.index + 1} / ${state.total}`;
+      document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
+      document.getElementById('progress-fill').style.width = `${(state.index / state.total) * 100}%`;
+      const subEl = document.getElementById('quiz-submode-label');
+      if (state.submodeLabel) {
+        // ランダム2は選ばれた段を表示、それ以外はそのままのラベル (B-7)
+        if (state.submode === 'r2' && state.questions.length) {
+          subEl.textContent = `ランダム 2 ／ ${state.questions[0].a}の だん`;
+        } else {
+          subEl.textContent = state.submodeLabel;
+        }
+        subEl.classList.remove('hidden');
+      } else {
+        subEl.classList.add('hidden');
+      }
+      KeypadPresenter._renderInput();
+      document.getElementById('feedback').textContent = '';
+      document.getElementById('feedback').className = 'feedback';
+      document.getElementById('answer-box').className = 'answer-box';
+      document.getElementById('keypad-input').classList.remove('hidden');
+      document.getElementById('keypad-next').classList.add('hidden');
+      state.phase = 'input';
+      state.firstAttemptDone = false;
+      state.questionStartAt = performance.now();
+    },
 
-    const box = document.getElementById('answer-box');
-    const fb = document.getElementById('feedback');
-    if (isCorrect) {
-      box.classList.remove('wrong');
-      box.classList.add('correct');
-      fb.textContent = 'せいかい！';
-      fb.className = 'feedback correct';
-      SoundFx.correct();
-      state.phase = 'feedback';
+    _renderInput() {
+      const box = document.getElementById('answer-box');
+      if (state.input === '') {
+        box.innerHTML = '<span class="answer-placeholder">?</span>';
+      } else {
+        box.textContent = state.input;
+      }
+      document.getElementById('btn-submit').disabled = (state.input === '');
+    },
+
+    handleKey(key) {
+      // 4 択系や data-*-key next ボタンから発火した場合は dataset.key が
+      // undefined になるため、ここでは受け付けない (Presenter が違うため)。
+      if (state.presenter !== KeypadPresenter) return;
+      if (state.phase === 'feedback') {
+        if (key === 'next') KeypadPresenter.next();
+        return;
+      }
+      if (state.phase === 'retry') {
+        // 誤答フィードバック中。数字/けす を押すと通常入力に戻り、
+        // 正解を打ち込ませてから けってい で進める (B-3)。
+        if (/^\d$/.test(key)) {
+          state.phase = 'input';
+          state.input = key;
+          document.getElementById('answer-box').classList.remove('wrong');
+          KeypadPresenter._renderInput();
+        } else if (key === 'clear') {
+          state.phase = 'input';
+          state.input = '';
+          document.getElementById('answer-box').classList.remove('wrong');
+          KeypadPresenter._renderInput();
+        }
+        // submit は btn-submit が disabled のため無視される
+        return;
+      }
+      if (key === 'clear') {
+        state.input = '';
+        KeypadPresenter._renderInput();
+        return;
+      }
+      if (key === 'submit') {
+        if (state.input === '') return;
+        KeypadPresenter._submit();
+        return;
+      }
+      if (/^\d$/.test(key)) {
+        if (state.input.length >= 3) return;
+        if (state.input === '' && key === '0') { state.input = '0'; KeypadPresenter._renderInput(); return; }
+        if (state.input === '0') { state.input = key; KeypadPresenter._renderInput(); return; }
+        state.input += key;
+        KeypadPresenter._renderInput();
+      }
+    },
+
+    _submit() {
+      const q = state.questions[state.index];
+      const user = parseInt(state.input, 10);
+      const isCorrect = user === q.ans;
+
+      // スコアは初回試行のみ (B-1)。時間計上も初回 submit で加算 (B-2)。
+      if (!state.firstAttemptDone) {
+        state.firstAttemptDone = true;
+        recordQuestionElapsed();
+        if (isCorrect) state.correctCount++;
+      }
+
+      const box = document.getElementById('answer-box');
+      const fb = document.getElementById('feedback');
       document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
-      document.getElementById('keypad-input').classList.add('hidden');
-      document.getElementById('keypad-next').classList.remove('hidden');
-    } else {
-      // 誤答: keypad-input を保持し、正解を入力させる。けってい は無効化して
-      // 誤答連打で先に進めないようにする。
-      box.classList.remove('correct');
-      box.classList.add('wrong');
-      fb.textContent = `ざんねん... こたえは ${q.ans}`;
-      fb.className = 'feedback wrong';
-      SoundFx.wrong();
-      state.phase = 'retry';
-      document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
-      document.getElementById('btn-submit').disabled = true;
-    }
-  }
-  function nextQuestion() {
-    state.index++;
-    state.input = '';
-    if (state.index >= state.total) {
-      finishQuiz();
-    } else {
-      renderQuestion();
-    }
-  }
+      if (isCorrect) {
+        box.classList.remove('wrong');
+        box.classList.add('correct');
+        fb.textContent = 'せいかい！';
+        fb.className = 'feedback correct';
+        SoundFx.correct();
+        state.phase = 'feedback';
+        document.getElementById('keypad-input').classList.add('hidden');
+        document.getElementById('keypad-next').classList.remove('hidden');
+      } else {
+        // 誤答: keypad-input を保持し、正解を入力させる。けってい は無効化して
+        // 誤答連打で先に進めないようにする (B-3)。
+        box.classList.remove('correct');
+        box.classList.add('wrong');
+        fb.textContent = `ざんねん... こたえは ${q.ans}`;
+        fb.className = 'feedback wrong';
+        SoundFx.wrong();
+        state.phase = 'retry';
+        document.getElementById('btn-submit').disabled = true;
+      }
+    },
+
+    next() {
+      state.index++;
+      state.input = '';
+      if (state.index >= state.total) {
+        finishQuiz();
+      } else {
+        KeypadPresenter.render();
+      }
+    },
+
+    markFinished() {
+      document.getElementById('progress-fill').style.width = '100%';
+    },
+  };
   function finishQuiz() {
     saveResult(state.mode, state.correctCount, state.total, state.sessionElapsedSec);
-    // progress-fill 満タン化。4 択系は Presenter 経由、keypad は既存の
-    // 'progress-fill'。DOM ID 分岐が Presenter に閉じたことで、Presenter
-    // 追加時にここを触る必要はなくなる (D-6)。
-    if (state.category === 'arith') {
-      document.getElementById('progress-fill').style.width = '100%';
-    } else {
-      ChoicePresenter.markFinished();
-    }
+    // progress-fill 満タン化 (D-6): Presenter が自分の DOM を知っている。
+    state.presenter?.markFinished();
     document.getElementById('result-correct').textContent = state.correctCount;
     document.getElementById('result-total').textContent = state.total;
     // submode 詳細は かけざん 系のみ。他カテゴリでは state.submodeLabel が
     // モード名そのものなので重複表示を避ける。
-    const submode = (state.category === 'arith' && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
+    const submode = (state.presenter === KeypadPresenter && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
     document.getElementById('result-mode').textContent = (stateModeInfo(state.mode)?.label ?? '') + submode;
     const msg = document.getElementById('result-message');
     if (state.correctCount === QUESTIONS_PER_SET) msg.textContent = '🏆 パーフェクト！';
@@ -1402,7 +1417,7 @@
       const v = CHOICE_VARIANTS[kind];
       if (!v) return;
       if (!(await v.ensureReady())) return;
-      state.category = 'choice-any';
+      state.presenter = ChoicePresenter;
       state.mode = mode;
       state.submode = null;
       // clock だけは submode ラベル表示無し (既存挙動)。
@@ -1664,11 +1679,11 @@
     if (!m) return;
     if (m.subMenu === 'mul') showScreen('mulMenu');
     else if (m.subMenu === 'kanji') showScreen('kanjiMenu');
-    else if (m.kind === 'keypad') startQuiz(m.key);
+    else if (m.kind === 'keypad') KeypadPresenter.start(m.key);
     else ChoicePresenter.start(m.key); // clock / choice / kanji (subMenu 経由)
   });
   document.querySelectorAll('[data-sub]').forEach(btn => {
-    btn.addEventListener('click', () => startQuiz('mul', btn.dataset.sub));
+    btn.addEventListener('click', () => KeypadPresenter.start('mul', btn.dataset.sub));
   });
   document.querySelectorAll('[data-kanji-mode]').forEach(btn => {
     btn.addEventListener('click', () => ChoicePresenter.start(btn.dataset.kanjiMode));
@@ -1703,18 +1718,16 @@
     el.addEventListener('click', () => {
       const dest = el.dataset.goto;
       if (dest === 'restart') {
-        // レジストリの kind から restart 先を決める。
-        // Phase E で state.presenter に一元化予定。
-        const kind = kindOfStateMode(state.mode);
-        if (kind === 'keypad') startQuiz(state.mode, state.submode);
-        else ChoicePresenter.start(state.mode); // kanji / clock / choice
+        // state.presenter に一元化 (D-5)。Presenter が違えば submode の
+        // 有無だけで interface が保たれる。
+        state.presenter?.start(state.mode, state.submode);
       } else {
         showScreen(dest);
       }
     });
   });
   document.querySelectorAll('.key').forEach(k => {
-    k.addEventListener('click', () => pressKey(k.dataset.key));
+    k.addEventListener('click', () => KeypadPresenter.handleKey(k.dataset.key));
   });
 
   showScreen('menu');
