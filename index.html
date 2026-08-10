@@ -950,7 +950,7 @@
       ans = a * b;
       symbol = '×';
     }
-    return { a, b, ans, symbol };
+    return { kind: 'keypad', a, b, ans, symbol };
   }
   function generateSet(mode, submode) {
     if (mode === 'mul' && submode) {
@@ -964,7 +964,7 @@
     return set;
   }
   function mulQ(a, b) {
-    return { a, b, ans: a * b, symbol: '×' };
+    return { kind: 'keypad', a, b, ans: a * b, symbol: '×' };
   }
   function generateMulSet(submode) {
     const set = [];
@@ -1490,7 +1490,10 @@
     const distractors = shuffle(pool).slice(0, 3);
     const options = shuffle([{ h, m }, ...distractors]);
     const answerIndex = options.findIndex(o => o.h === h && o.m === m);
-    return { h, m, options, answerIndex };
+    // choices は options から派生させて ChoiceQuestion の shape に寄せる。
+    // Presenter が feedback 文言を組み立てる際は h/m を使うため両者を持つ。
+    const choices = options.map(o => formatClockTime(o.h, o.m));
+    return { kind: 'choice', subtype: 'clock', h, m, options, choices, answerIndex };
   }
   function generateClockSet() {
     const n = questionsForMode('clock');

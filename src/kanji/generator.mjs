@@ -118,7 +118,10 @@ function distractorKanjiForms(entry, dictionary, correct, n, rng) {
   return result;
 }
 
-/** 漢字→読み */
+/**
+ * 漢字→読み
+ * @returns {import('../quiz/question.mjs').ChoiceQuestion}
+ */
 export function generateKanjiToReading(entry, dictionary, rng = Math.random) {
   const correct = primaryReading(entry);
   if (!correct) throw new Error(`no primary reading for ${entry.kanji}`);
@@ -126,6 +129,7 @@ export function generateKanjiToReading(entry, dictionary, rng = Math.random) {
   const distractors = distractorReadingForms(entry, dictionary, correct, CHOICE_COUNT - 1, rng);
   const choices = shuffle([correctForm, ...distractors], rng);
   return {
+    kind: 'choice',
     type: 'choice',
     subtype: 'kanji-to-reading',
     question: kanjiForm(entry.kanji, correct),
@@ -135,7 +139,10 @@ export function generateKanjiToReading(entry, dictionary, rng = Math.random) {
   };
 }
 
-/** 読み→漢字 */
+/**
+ * 読み→漢字
+ * @returns {import('../quiz/question.mjs').ChoiceQuestion}
+ */
 export function generateReadingToKanji(entry, dictionary, rng = Math.random) {
   const correct = primaryReading(entry);
   if (!correct) throw new Error(`no primary reading for ${entry.kanji}`);
@@ -143,6 +150,7 @@ export function generateReadingToKanji(entry, dictionary, rng = Math.random) {
   const distractors = distractorKanjiForms(entry, dictionary, correct, CHOICE_COUNT - 1, rng);
   const choices = shuffle([correctForm, ...distractors], rng);
   return {
+    kind: 'choice',
     type: 'choice',
     subtype: 'reading-to-kanji',
     question: readingForm(correct),
@@ -177,6 +185,7 @@ export function generateSentenceReading(entry, dictionary, rng = Math.random) {
   const choices = shuffle([correctText, ...distractors], rng);
 
   return {
+    kind: 'choice',
     type: 'sentence',
     subtype: 'sentence-reading',
     sentence: example.text,

@@ -18,6 +18,7 @@ function randInt(rng, min, max) {
  * 10 の あわせて: `n + ? = 10`。n は 1〜9、答えは 10-n。
  * 選択肢は 1〜9 から答えとダミー 3 個。
  */
+/** @returns {import('../quiz/question.mjs').ChoiceQuestion} */
 export function generateTenComp(rng = Math.random) {
   const n = randInt(rng, 1, 9);
   const answer = 10 - n;
@@ -26,6 +27,7 @@ export function generateTenComp(rng = Math.random) {
   const distractors = sample(pool, CHOICE_COUNT - 1, rng);
   const choices = shuffle([answer, ...distractors], rng).map(String);
   return {
+    kind: 'choice',
     subtype: 'ten-comp',
     question: `${n} + ？ = 10`,
     choices,
@@ -37,6 +39,7 @@ export function generateTenComp(rng = Math.random) {
  * ぐうすう・きすう: 4 つの数から偶数（or 奇数）を選ばせる。
  * 正解 1 個 + ダミー 3 個（逆パリティ）の構成。
  */
+/** @returns {import('../quiz/question.mjs').ChoiceQuestion} */
 export function generateParity(rng = Math.random) {
   const askEven = rng() < 0.5;
   const targetParity = askEven ? 0 : 1;
@@ -48,6 +51,7 @@ export function generateParity(rng = Math.random) {
   const distractors = sample(other, CHOICE_COUNT - 1, rng);
   const choices = shuffle([correct, ...distractors], rng).map(String);
   return {
+    kind: 'choice',
     subtype: 'parity',
     question: askEven ? 'ぐうすうは どれ？' : 'きすうは どれ？',
     choices,
