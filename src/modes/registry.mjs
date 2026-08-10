@@ -23,11 +23,11 @@ export const CATEGORIES = [
 // - 'kanji' : かんじサブメニューの親。実 state.mode は subModes[].key。
 // - 'clock' : とけい。SVG 時計盤 + 4 択。
 // - 'choice': 汎用 4 択。generator を直接持つ。
-// Phase D で kanji/clock/choice の Presenter を統合予定。
+// kanji / clock / choice は ChoicePresenter が variant table 経由で扱う。
 //
 // subMenu: 'mul' | 'kanji' | undefined
 //   'mul'  → mulMenu 画面を挟んで keypad Presenter に入る
-//   'kanji'→ kanjiMenu 画面を挟んで kanji Presenter に入る
+//   'kanji'→ kanjiMenu 画面を挟んで ChoicePresenter (kanji variant) に入る
 //
 // questionsPerSet: 1 セットの出題数。未指定なら 10。
 //   反射的に反復する量が少なすぎるモード (add / sub) だけ増やす。
@@ -68,23 +68,22 @@ export const MODES = [
 
 // state.mode（= localStorage キー）→ 表示情報の Map。
 // kanji のような subModes を持つエントリは各 sub を平坦化して収める。
-// parent は Presenter 判定 (kind の継承) と restart 分岐で使う。
+// kind は親から継承させて格納しておくと、kindOfStateMode の呼び出しごとに
+// MODES を再走査せずに済む。
 export const STATE_MODES = new Map();
 for (const m of MODES) {
   if (m.subModes) {
     for (const sm of m.subModes) {
-      STATE_MODES.set(sm.key, { key: sm.key, label: sm.label, shortLabel: sm.shortLabel, parent: m });
+      STATE_MODES.set(sm.key, { key: sm.key, label: sm.label, shortLabel: sm.shortLabel, kind: m.kind, parent: m });
     }
   } else {
-    STATE_MODES.set(m.key, { key: m.key, label: m.label, shortLabel: m.shortLabel, parent: null });
+    STATE_MODES.set(m.key, { key: m.key, label: m.label, shortLabel: m.shortLabel, kind: m.kind, parent: null });
   }
 }
 
-// state.mode の kind を返す。subMode は親から継承。
+// state.mode の kind を返す。subMode は親から継承済み。
 export function kindOfStateMode(stateMode) {
-  const sm = STATE_MODES.get(stateMode);
-  if (!sm) return null;
-  return sm.parent ? sm.parent.kind : MODES.find(x => x.key === stateMode)?.kind ?? null;
+  return STATE_MODES.get(stateMode)?.kind ?? null;
 }
 
 // モードべつ棒グラフのラベル定義。レジストリから派生 = 追加漏れが構造的に起きない。
