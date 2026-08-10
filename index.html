@@ -534,72 +534,10 @@
 <div id="app">
   <h1>フラッシュドリル</h1>
 
-  <!-- モード選択 -->
+  <!-- モード選択。カテゴリ見出しとボタンはレジストリから initMenu() で動的生成する。 -->
   <section id="screen-menu" class="screen">
     <div class="subtitle">もんだいを えらんでね</div>
-    <div class="category-heading">さんすう</div>
-    <div class="mode-buttons">
-      <button class="mode-btn" data-mode="add">
-        <span>たしざん</span><span class="emoji">➕</span>
-      </button>
-      <button class="mode-btn" data-mode="sub">
-        <span>ひきざん</span><span class="emoji">➖</span>
-      </button>
-      <button class="mode-btn" data-mode="mul">
-        <span>かけざん</span><span class="emoji">✖️</span>
-      </button>
-      <button class="mode-btn" data-mode="ten-comp">
-        <span>10 の あわせて</span><span class="emoji">🔟</span>
-      </button>
-      <button class="mode-btn" data-mode="parity">
-        <span>ぐうすう・きすう</span><span class="emoji">⚖️</span>
-      </button>
-    </div>
-    <div class="category-heading">こくご</div>
-    <div class="mode-buttons">
-      <button class="mode-btn" data-mode="kanji">
-        <span>かんじ</span><span class="emoji">漢</span>
-      </button>
-      <button class="mode-btn" data-mode="hira-to-kata">
-        <span>ひらがな ➡ カタカナ</span><span class="emoji">ア</span>
-      </button>
-      <button class="mode-btn" data-mode="kata-to-hira">
-        <span>カタカナ ➡ ひらがな</span><span class="emoji">あ</span>
-      </button>
-      <button class="mode-btn" data-mode="antonym">
-        <span>はんたい ことば</span><span class="emoji">⇔</span>
-      </button>
-    </div>
-    <div class="category-heading">えいご</div>
-    <div class="mode-buttons">
-      <button class="mode-btn" data-mode="ja-to-en">
-        <span>にほんご ➡ えいご</span><span class="emoji">A</span>
-      </button>
-      <button class="mode-btn" data-mode="en-to-ja">
-        <span>えいご ➡ にほんご</span><span class="emoji">🔠</span>
-      </button>
-    </div>
-    <div class="category-heading">りか・せいかつ・しゃかい</div>
-    <div class="mode-buttons">
-      <button class="mode-btn" data-mode="clock">
-        <span>とけい</span><span class="emoji">🕐</span>
-      </button>
-      <button class="mode-btn" data-mode="season">
-        <span>きせつの ことば</span><span class="emoji">🌸</span>
-      </button>
-      <button class="mode-btn" data-mode="group">
-        <span>なかまわけ</span><span class="emoji">🍎</span>
-      </button>
-    </div>
-    <div class="category-heading">でんしゃ</div>
-    <div class="mode-buttons">
-      <button class="mode-btn" data-mode="train-h2k">
-        <span>ひらがな ➡ かんじ (でんしゃ)</span><span class="emoji">🚃</span>
-      </button>
-      <button class="mode-btn" data-mode="train-k2h">
-        <span>かんじ ➡ ひらがな (でんしゃ)</span><span class="emoji">🚄</span>
-      </button>
-    </div>
+    <div id="menu-mode-list"></div>
     <div class="link-row">
       <a href="#" id="link-stats">きろくを みる ›</a>
       <button type="button" class="sound-toggle" id="sound-toggle" aria-label="おと オン/オフ">🔊 おと</button>
@@ -861,52 +799,29 @@
     generateTrainHiraToKanji,
     generateTrainKanjiToHira,
   } from './src/densha/generator.mjs';
+  import { summarize, modeBreakdown } from './src/stats/index.mjs';
   import {
-    summarize,
-    modeBreakdown,
+    MODES,
+    CATEGORIES,
+    STATE_MODES,
     MODE_BREAKDOWN_DEFS,
-  } from './src/stats/index.mjs';
+    kindOfStateMode,
+  } from './src/modes/registry.mjs';
 
-  const MODES = {
-    add: { label: 'たしざん', symbol: '＋' },
-    sub: { label: 'ひきざん', symbol: '－' },
-    mul: { label: 'かけざん', symbol: '×' },
-    'ten-comp': { label: '10 の あわせて' },
-    parity: { label: 'ぐうすう・きすう' },
-    k2r: { label: 'かんじ ➡ よみ' },
-    r2k: { label: 'よみ ➡ かんじ' },
-    ksent: { label: 'ぶんの なかの よみ' },
-    'hira-to-kata': { label: 'ひらがな ➡ カタカナ' },
-    'kata-to-hira': { label: 'カタカナ ➡ ひらがな' },
-    antonym: { label: 'はんたい ことば' },
-    'ja-to-en': { label: 'にほんご ➡ えいご' },
-    'en-to-ja': { label: 'えいご ➡ にほんご' },
-    clock: { label: 'とけい' },
-    season: { label: 'きせつの ことば' },
-    group: { label: 'なかまわけ' },
-    'train-h2k': { label: 'ひらがな ➡ かんじ (でんしゃ)' },
-    'train-k2h': { label: 'かんじ ➡ ひらがな (でんしゃ)' },
-  };
+  // メニューボタン単位の索引。dispatcher / restart で頻繁に引くため Map 化。
+  const MODES_BY_KEY = new Map(MODES.map(m => [m.key, m]));
+  function modeByKey(key) { return MODES_BY_KEY.get(key) || null; }
+  function stateModeInfo(key) { return STATE_MODES.get(key) || null; }
 
-  // 汎用 4択画面を使うモード。生成器を集約。
-  const CHOICE_GENERATORS = {
-    'hira-to-kata': generateHiraToKata,
-    'kata-to-hira': generateKataToHira,
-    antonym: generateAntonym,
-    'ten-comp': generateTenComp,
-    parity: generateParity,
-    'ja-to-en': generateJaToEn,
-    'en-to-ja': generateEnToJa,
-    season: generateSeason,
-    group: generateGroup,
-    'train-h2k': generateTrainHiraToKanji,
-    'train-k2h': generateTrainKanjiToHira,
-  };
   const QUESTIONS_PER_SET = 10;
-  // モード別の出題数。反射的に反復する量が少なすぎるモードだけ増やす。
-  const QUESTIONS_BY_MODE = { add: 20, sub: 20 };
   function questionsForMode(mode) {
-    return QUESTIONS_BY_MODE[mode] || QUESTIONS_PER_SET;
+    // 直接モード → questionsPerSet があればそれ、無ければ 10。
+    // kanji サブモード → 親の questionsPerSet を継承（現状全て 10）。
+    const m = modeByKey(mode);
+    if (m?.questionsPerSet) return m.questionsPerSet;
+    const sm = stateModeInfo(mode);
+    if (sm?.parent?.questionsPerSet) return sm.parent.questionsPerSet;
+    return QUESTIONS_PER_SET;
   }
   // 1問あたりの計上時間の上限（秒）。放置・タブ切替・意図的な引き伸ばしで
   // 学習時間を水増しできないよう、裏側で1問=最大10秒として集計する。
@@ -1250,7 +1165,7 @@
     // submode 詳細は かけざん 系のみ。他カテゴリでは state.submodeLabel が
     // モード名そのものなので重複表示を避ける。
     const submode = (state.category === 'arith' && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
-    document.getElementById('result-mode').textContent = MODES[state.mode].label + submode;
+    document.getElementById('result-mode').textContent = (stateModeInfo(state.mode)?.label ?? '') + submode;
     const msg = document.getElementById('result-message');
     if (state.correctCount === QUESTIONS_PER_SET) msg.textContent = '🏆 パーフェクト！';
     else if (state.correctCount >= 8) msg.textContent = '👏 すごい！';
@@ -1303,7 +1218,7 @@
     state.category = 'kanji';
     state.mode = mode;
     state.submode = null;
-    state.submodeLabel = MODES[mode].label;
+    state.submodeLabel = stateModeInfo(mode)?.label ?? '';
     state.questions = generateKanjiSet(mode, kanjiDict);
     state.total = state.questions.length;
     state.index = 0;
@@ -1429,7 +1344,7 @@
   }
 
   function generateChoiceSet(mode) {
-    const gen = CHOICE_GENERATORS[mode];
+    const gen = modeByKey(mode)?.generator;
     if (!gen) throw new Error(`unknown choice mode: ${mode}`);
     const n = questionsForMode(mode);
     // 同じ問題が連続すると単調なので、生成した問題の question キーで重複を軽く避ける。
@@ -1453,7 +1368,7 @@
     state.category = 'choice';
     state.mode = mode;
     state.submode = null;
-    state.submodeLabel = MODES[mode].label;
+    state.submodeLabel = stateModeInfo(mode)?.label ?? '';
     state.questions = generateChoiceSet(mode);
     state.total = state.questions.length;
     state.index = 0;
@@ -1786,7 +1701,7 @@
     renderBarChart('chart-total', s.daily, d => d.count, d => `${d.month}/${d.day}`);
 
     // モード別（きょう）。count>0 のもののみ表示する（既存挙動）。
-    // データが 1 件もなければ renderBarChart 側の空表示にフォールバックする。
+    // 対象モードはレジストリから MODE_BREAKDOWN_DEFS 経由で供給される。
     const modeData = modeBreakdown(stats[today] || {}, MODE_BREAKDOWN_DEFS);
     renderBarChart('chart-mode-today', modeData, d => d.count, d => d.label);
   }
@@ -1809,16 +1724,52 @@
     container.innerHTML = `<div class="chart">${bars}</div><div class="chart-labels">${labels}</div>`;
   }
 
+  // --- メニュー動的生成 ---
+  // .mode-btn はレジストリ MODES から動的生成する。CSS の [data-mode="X"]
+  // は key ごとに指定されているので、動的化しても既存の色が維持される。
+  function initMenu() {
+    const container = document.getElementById('menu-mode-list');
+    container.textContent = '';
+    for (const cat of CATEGORIES) {
+      const heading = document.createElement('div');
+      heading.className = 'category-heading';
+      heading.textContent = cat.heading;
+      container.appendChild(heading);
+
+      const btns = document.createElement('div');
+      btns.className = 'mode-buttons';
+      for (const m of MODES) {
+        if (m.category !== cat.key) continue;
+        const btn = document.createElement('button');
+        btn.className = 'mode-btn';
+        btn.dataset.mode = m.key;
+        // XSS を招かないよう textContent で入れる。emoji は文字列。
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = m.label;
+        const emojiSpan = document.createElement('span');
+        emojiSpan.className = 'emoji';
+        emojiSpan.textContent = m.emoji;
+        btn.append(labelSpan, emojiSpan);
+        btns.appendChild(btn);
+      }
+      container.appendChild(btns);
+    }
+  }
+  initMenu();
+
   // --- イベント配線 ---
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
-      if (mode === 'mul') showScreen('mulMenu');
-      else if (mode === 'kanji') showScreen('kanjiMenu');
-      else if (mode === 'clock') startClockQuiz();
-      else if (CHOICE_GENERATORS[mode]) startChoiceQuiz(mode);
-      else startQuiz(mode);
-    });
+  // メニューボタンの dispatch はレジストリの kind / subMenu 駆動。
+  // モード追加時にこの分岐を触る必要はない。
+  document.getElementById('menu-mode-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('.mode-btn');
+    if (!btn) return;
+    const m = modeByKey(btn.dataset.mode);
+    if (!m) return;
+    if (m.subMenu === 'mul') showScreen('mulMenu');
+    else if (m.subMenu === 'kanji') showScreen('kanjiMenu');
+    else if (m.kind === 'clock') startClockQuiz();
+    else if (m.kind === 'choice') startChoiceQuiz(m.key);
+    else if (m.kind === 'keypad') startQuiz(m.key);
   });
   document.querySelectorAll('[data-sub]').forEach(btn => {
     btn.addEventListener('click', () => startQuiz('mul', btn.dataset.sub));
@@ -1873,10 +1824,13 @@
     el.addEventListener('click', () => {
       const dest = el.dataset.goto;
       if (dest === 'restart') {
-        if (state.category === 'kanji') startKanjiQuiz(state.mode);
-        else if (state.category === 'clock') startClockQuiz();
-        else if (state.category === 'choice') startChoiceQuiz(state.mode);
-        else startQuiz(state.mode, state.submode);
+        // レジストリの kind から restart 先を決める。
+        // Phase E で state.presenter に一元化予定。
+        const kind = kindOfStateMode(state.mode);
+        if (kind === 'kanji') startKanjiQuiz(state.mode);
+        else if (kind === 'clock') startClockQuiz();
+        else if (kind === 'choice') startChoiceQuiz(state.mode);
+        else if (kind === 'keypad') startQuiz(state.mode, state.submode);
       } else {
         showScreen(dest);
       }
