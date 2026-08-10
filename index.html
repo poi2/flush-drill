@@ -1196,7 +1196,7 @@
     const submode = (state.presenter === KeypadPresenter && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
     document.getElementById('result-mode').textContent = (stateModeInfo(state.mode)?.label ?? '') + submode;
     const msg = document.getElementById('result-message');
-    if (state.correctCount === QUESTIONS_PER_SET) msg.textContent = '🏆 パーフェクト！';
+    if (state.correctCount === state.total) msg.textContent = '🏆 パーフェクト！';
     else if (state.correctCount >= 8) msg.textContent = '👏 すごい！';
     else if (state.correctCount >= 5) msg.textContent = '😊 その ちょうし！';
     else msg.textContent = '💪 もういちど チャレンジ！';
