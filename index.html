@@ -1155,11 +1155,14 @@
   }
   function finishQuiz() {
     saveResult(state.mode, state.correctCount, state.total, state.sessionElapsedSec);
-    const fillId = state.category === 'kanji' ? 'kanji-progress-fill'
-      : state.category === 'clock' ? 'clock-progress-fill'
-      : state.category === 'choice' ? 'choice-progress-fill'
-      : 'progress-fill';
-    document.getElementById(fillId).style.width = '100%';
+    // progress-fill 満タン化。4 択系は Presenter 経由、keypad は既存の
+    // 'progress-fill'。DOM ID 分岐が Presenter に閉じたことで、Presenter
+    // 追加時にここを触る必要はなくなる (D-6)。
+    if (state.category === 'arith') {
+      document.getElementById('progress-fill').style.width = '100%';
+    } else {
+      ChoicePresenter.markFinished();
+    }
     document.getElementById('result-correct').textContent = state.correctCount;
     document.getElementById('result-total').textContent = state.total;
     // submode 詳細は かけざん 系のみ。他カテゴリでは state.submodeLabel が
@@ -1174,7 +1177,11 @@
     showScreen('result');
   }
 
-  // --- かんじクイズ ---
+  // --- 4 択系 Presenter (kanji / clock / choice を統合) ---
+  // 差分は CHOICE_VARIANTS 内の DOM 参照とプロンプト描画・feedback ラベル生成に
+  // 閉じ込め、ライフサイクル (スコア加点 / 時間計上 / SoundFx / description 表示 /
+  // 誤答 UI) は ChoicePresenter に一元化する。
+
   let kanjiDict = null;
   const kanjiDictPromise = (async () => {
     try {
@@ -1203,140 +1210,15 @@
     return entries.map(e => KANJI_GENERATORS[mode](e, dict));
   }
 
+  // XSS 経路を最小化するため、innerHTML を使うのは kanji sentence の target
+  // マーキングだけに限定する。ここだけ escapeHtml を通す。
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => (
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
     ));
   }
 
-  async function startKanjiQuiz(mode) {
-    if (!kanjiDict) await kanjiDictPromise;
-    if (!kanjiDict) {
-      alert('かんじデータの よみこみに 失敗しました');
-      return;
-    }
-    state.category = 'kanji';
-    state.mode = mode;
-    state.submode = null;
-    state.submodeLabel = stateModeInfo(mode)?.label ?? '';
-    state.questions = generateKanjiSet(mode, kanjiDict);
-    state.total = state.questions.length;
-    state.index = 0;
-    state.correctCount = 0;
-    state.phase = 'input';
-    state.sessionElapsedSec = 0;
-    showScreen('kanjiQuiz');
-    renderKanjiQuestion();
-  }
-
-  function renderKanjiQuestion() {
-    const q = state.questions[state.index];
-    const prompt = document.getElementById('kanji-prompt');
-    prompt.className = 'kanji-prompt';
-    if (q.subtype === 'kanji-to-reading') {
-      prompt.classList.add('kind-k2r');
-      prompt.innerHTML = `<div class="kanji-char">${escapeHtml(q.question)}</div>`;
-    } else if (q.subtype === 'reading-to-kanji') {
-      prompt.classList.add('kind-r2k');
-      prompt.innerHTML = `<div class="kanji-reading">${escapeHtml(q.question)}</div>`;
-    } else {
-      prompt.classList.add('kind-sent');
-      const target = escapeHtml(q.target);
-      const marked = escapeHtml(q.sentence).split(target).join(
-        `<span class="kanji-target-mark">${target}</span>`,
-      );
-      prompt.innerHTML =
-        `<div class="kanji-sentence">${marked}</div>` +
-        `<div class="kanji-sub-question">「${target}」の よみは？</div>`;
-    }
-
-    document.getElementById('kanji-progress-text').textContent = `${state.index + 1} / ${state.total}`;
-    document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('kanji-progress-fill').style.width = `${(state.index / state.total) * 100}%`;
-    document.getElementById('kanji-submode-label').textContent = state.submodeLabel;
-
-    const fb = document.getElementById('kanji-feedback');
-    fb.textContent = '';
-    fb.className = 'feedback';
-
-    const choicesEl = document.getElementById('kanji-choices');
-    choicesEl.innerHTML = '';
-    q.choices.forEach((choice, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'choice-btn';
-      btn.dataset.choiceIndex = String(i);
-      btn.textContent = choice;
-      choicesEl.appendChild(btn);
-    });
-
-    document.getElementById('kanji-keypad-next').classList.add('hidden');
-    state.phase = 'input';
-    state.firstAttemptDone = false;
-    state.questionStartAt = performance.now();
-  }
-
-  function handleKanjiChoice(index) {
-    if (state.phase === 'feedback') return;
-    const q = state.questions[state.index];
-    const isCorrect = index === q.answerIndex;
-
-    // スコアは初回のみ。リトライで正解しても加点しない。
-    if (!state.firstAttemptDone) {
-      state.firstAttemptDone = true;
-      recordQuestionElapsed();
-      if (isCorrect) state.correctCount++;
-    }
-
-    const buttons = document.querySelectorAll('#kanji-choices .choice-btn');
-    const fb = document.getElementById('kanji-feedback');
-
-    if (isCorrect) {
-      state.phase = 'feedback';
-      buttons.forEach((btn, i) => {
-        btn.disabled = true;
-        if (i === q.answerIndex) btn.classList.add('correct');
-        else if (!btn.classList.contains('wrong')) btn.classList.add('dim');
-      });
-      fb.textContent = 'せいかい！';
-      fb.className = 'feedback correct';
-      SoundFx.correct();
-      document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
-      document.getElementById('kanji-keypad-next').classList.remove('hidden');
-    } else {
-      // 誤答: 押した選択肢を wrong で無効化、他は dim で無効化し、正解だけ
-      // タップ可能な状態にする。子どもは「たけ」の位置を能動的に確認して進む。
-      state.phase = 'retry';
-      buttons.forEach((btn, i) => {
-        if (i === q.answerIndex) {
-          btn.classList.add('correct');
-          btn.disabled = false;
-        } else if (i === index) {
-          btn.classList.add('wrong');
-          btn.disabled = true;
-        } else {
-          btn.classList.add('dim');
-          btn.disabled = true;
-        }
-      });
-      fb.textContent = `こたえは「${q.choices[q.answerIndex]}」`;
-      fb.className = 'feedback wrong';
-      SoundFx.wrong();
-      document.getElementById('kanji-score-text').textContent = `〇 ${state.correctCount}`;
-    }
-  }
-
-  function nextKanjiQuestion() {
-    state.index++;
-    if (state.index >= state.total) {
-      finishQuiz();
-    } else {
-      renderKanjiQuestion();
-    }
-  }
-
-  // --- 汎用 4択クイズ (カタカナ, はんたい, 10の合成, 数の並び, 偶奇, 英語, なきごえ, きせつ, なかまわけ) ---
-
-  /** プロンプト文字列の長さから表示サイズを決める。 */
+  /** プロンプト文字列の長さから choice-prompt の表示サイズを決める。 */
   function choicePromptSize(text) {
     if (text.length <= 2) return 'size-l';
     if (text.length <= 6) return 'size-m';
@@ -1364,115 +1246,7 @@
     return set;
   }
 
-  function startChoiceQuiz(mode) {
-    state.category = 'choice';
-    state.mode = mode;
-    state.submode = null;
-    state.submodeLabel = stateModeInfo(mode)?.label ?? '';
-    state.questions = generateChoiceSet(mode);
-    state.total = state.questions.length;
-    state.index = 0;
-    state.correctCount = 0;
-    state.phase = 'input';
-    state.sessionElapsedSec = 0;
-    showScreen('choiceQuiz');
-    renderChoiceQuestion();
-  }
-
-  function renderChoiceQuestion() {
-    const q = state.questions[state.index];
-    const prompt = document.getElementById('choice-prompt');
-    prompt.className = 'choice-prompt ' + choicePromptSize(q.question);
-    prompt.textContent = q.question;
-
-    document.getElementById('choice-progress-text').textContent = `${state.index + 1} / ${state.total}`;
-    document.getElementById('choice-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('choice-progress-fill').style.width = `${(state.index / state.total) * 100}%`;
-    document.getElementById('choice-submode-label').textContent = state.submodeLabel;
-
-    const fb = document.getElementById('choice-feedback');
-    fb.textContent = '';
-    fb.className = 'feedback';
-    document.getElementById('choice-description').textContent = '';
-
-    const choicesEl = document.getElementById('choice-choices');
-    choicesEl.innerHTML = '';
-    q.choices.forEach((choice, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'choice-btn';
-      btn.dataset.choiceIndex = String(i);
-      btn.textContent = choice;
-      choicesEl.appendChild(btn);
-    });
-
-    document.getElementById('choice-keypad-next').classList.add('hidden');
-    state.phase = 'input';
-    state.firstAttemptDone = false;
-    state.questionStartAt = performance.now();
-  }
-
-  function handleChoiceSelect(index) {
-    if (state.phase === 'feedback') return;
-    const q = state.questions[state.index];
-    const isCorrect = index === q.answerIndex;
-
-    if (!state.firstAttemptDone) {
-      state.firstAttemptDone = true;
-      recordQuestionElapsed();
-      if (isCorrect) state.correctCount++;
-    }
-
-    const buttons = document.querySelectorAll('#choice-choices .choice-btn');
-    const fb = document.getElementById('choice-feedback');
-
-    if (isCorrect) {
-      state.phase = 'feedback';
-      buttons.forEach((btn, i) => {
-        btn.disabled = true;
-        if (i === q.answerIndex) btn.classList.add('correct');
-        else if (!btn.classList.contains('wrong')) btn.classList.add('dim');
-      });
-      fb.textContent = 'せいかい！';
-      fb.className = 'feedback correct';
-      SoundFx.correct();
-      const desc = document.getElementById('choice-description');
-      // description を返さない既存モードでは空のまま (:empty で display:none)。
-      if (q.description) desc.textContent = q.description;
-      document.getElementById('choice-score-text').textContent = `〇 ${state.correctCount}`;
-      document.getElementById('choice-keypad-next').classList.remove('hidden');
-    } else {
-      // 誤答: 誤りは wrong で無効化、他は dim、正解のみ押せる状態にして
-      // 学習者に正しい選択肢を能動的に確認させる（kanji/clock と同じ挙動）。
-      state.phase = 'retry';
-      buttons.forEach((btn, i) => {
-        if (i === q.answerIndex) {
-          btn.classList.add('correct');
-          btn.disabled = false;
-        } else if (i === index) {
-          btn.classList.add('wrong');
-          btn.disabled = true;
-        } else {
-          btn.classList.add('dim');
-          btn.disabled = true;
-        }
-      });
-      fb.textContent = `こたえは「${q.choices[q.answerIndex]}」`;
-      fb.className = 'feedback wrong';
-      SoundFx.wrong();
-      document.getElementById('choice-score-text').textContent = `〇 ${state.correctCount}`;
-    }
-  }
-
-  function nextChoiceQuestion() {
-    state.index++;
-    if (state.index >= state.total) {
-      finishQuiz();
-    } else {
-      renderChoiceQuestion();
-    }
-  }
-
-  // --- とけいクイズ ---
+  // --- とけい (choice variant の一部として利用) ---
   const CLOCK_MINUTES = [0, 15, 30, 45];
   function formatClockTime(h, m) {
     return m === 0 ? `${h}時` : `${h}時${m}分`;
@@ -1490,8 +1264,6 @@
     const distractors = shuffle(pool).slice(0, 3);
     const options = shuffle([{ h, m }, ...distractors]);
     const answerIndex = options.findIndex(o => o.h === h && o.m === m);
-    // choices は options から派生させて ChoiceQuestion の shape に寄せる。
-    // Presenter が feedback 文言を組み立てる際は h/m を使うため両者を持つ。
     const choices = options.map(o => formatClockTime(o.h, o.m));
     return { kind: 'choice', subtype: 'clock', h, m, options, choices, answerIndex };
   }
@@ -1503,7 +1275,6 @@
   }
   function renderClockFace(h, m) {
     const minuteAngle = m * 6;
-    // 時針は分に応じて進む (1分あたり 0.5度)
     const hourAngle = ((h % 12) * 30) + (m * 0.5);
     const numbers = [];
     for (let i = 1; i <= 12; i++) {
@@ -1535,100 +1306,223 @@
       <circle cx="100" cy="100" r="5" fill="#333"/>
     </svg>`;
   }
-  function startClockQuiz() {
-    state.category = 'clock';
-    state.mode = 'clock';
-    state.submode = null;
-    state.submodeLabel = '';
-    state.questions = generateClockSet();
-    state.total = state.questions.length;
-    state.index = 0;
-    state.correctCount = 0;
-    state.phase = 'input';
-    state.sessionElapsedSec = 0;
-    showScreen('clockQuiz');
-    renderClockQuestion();
-  }
-  function renderClockQuestion() {
-    const q = state.questions[state.index];
-    document.getElementById('clock-face').innerHTML = renderClockFace(q.h, q.m);
-    document.getElementById('clock-progress-text').textContent = `${state.index + 1} / ${state.total}`;
-    document.getElementById('clock-score-text').textContent = `〇 ${state.correctCount}`;
-    document.getElementById('clock-progress-fill').style.width = `${(state.index / state.total) * 100}%`;
 
-    const fb = document.getElementById('clock-feedback');
-    fb.textContent = '';
-    fb.className = 'feedback';
-
-    const choicesEl = document.getElementById('clock-choices');
-    choicesEl.innerHTML = '';
-    q.options.forEach((opt, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'choice-btn';
-      btn.dataset.choiceIndex = String(i);
-      btn.textContent = formatClockTime(opt.h, opt.m);
-      choicesEl.appendChild(btn);
-    });
-
-    document.getElementById('clock-keypad-next').classList.add('hidden');
-    state.phase = 'input';
-    state.firstAttemptDone = false;
-    state.questionStartAt = performance.now();
-  }
-  function handleClockChoice(index) {
-    if (state.phase === 'feedback') return;
-    const q = state.questions[state.index];
-    const isCorrect = index === q.answerIndex;
-
-    if (!state.firstAttemptDone) {
-      state.firstAttemptDone = true;
-      recordQuestionElapsed();
-      if (isCorrect) state.correctCount++;
-    }
-
-    const buttons = document.querySelectorAll('#clock-choices .choice-btn');
-    const fb = document.getElementById('clock-feedback');
-
-    if (isCorrect) {
-      state.phase = 'feedback';
-      buttons.forEach((btn, i) => {
-        btn.disabled = true;
-        if (i === q.answerIndex) btn.classList.add('correct');
-        else if (!btn.classList.contains('wrong')) btn.classList.add('dim');
-      });
-      fb.textContent = 'せいかい！';
-      fb.className = 'feedback correct';
-      SoundFx.correct();
-      document.getElementById('clock-score-text').textContent = `〇 ${state.correctCount}`;
-      document.getElementById('clock-keypad-next').classList.remove('hidden');
-    } else {
-      state.phase = 'retry';
-      buttons.forEach((btn, i) => {
-        if (i === q.answerIndex) {
-          btn.classList.add('correct');
-          btn.disabled = false;
-        } else if (i === index) {
-          btn.classList.add('wrong');
-          btn.disabled = true;
+  // 4 択系 Presenter の variant table。DOM 参照 + プロンプト描画 + feedback
+  // ラベル取得 + set 生成 + 事前準備 (kanji のみ辞書ロード) の差分を持つ。
+  const CHOICE_VARIANTS = {
+    kanji: {
+      screen: 'kanjiQuiz',
+      progressFillId: 'kanji-progress-fill',
+      progressTextId: 'kanji-progress-text',
+      scoreTextId: 'kanji-score-text',
+      submodeLabelId: 'kanji-submode-label',
+      feedbackId: 'kanji-feedback',
+      choicesContainerId: 'kanji-choices',
+      keypadNextId: 'kanji-keypad-next',
+      descriptionId: null,
+      renderPrompt(q) {
+        const prompt = document.getElementById('kanji-prompt');
+        prompt.className = 'kanji-prompt';
+        if (q.subtype === 'kanji-to-reading') {
+          prompt.classList.add('kind-k2r');
+          prompt.innerHTML = `<div class="kanji-char">${escapeHtml(q.question)}</div>`;
+        } else if (q.subtype === 'reading-to-kanji') {
+          prompt.classList.add('kind-r2k');
+          prompt.innerHTML = `<div class="kanji-reading">${escapeHtml(q.question)}</div>`;
         } else {
-          btn.classList.add('dim');
-          btn.disabled = true;
+          prompt.classList.add('kind-sent');
+          const target = escapeHtml(q.target);
+          const marked = escapeHtml(q.sentence).split(target).join(
+            `<span class="kanji-target-mark">${target}</span>`,
+          );
+          prompt.innerHTML =
+            `<div class="kanji-sentence">${marked}</div>` +
+            `<div class="kanji-sub-question">「${target}」の よみは？</div>`;
         }
+      },
+      feedbackLabel(q) { return q.choices[q.answerIndex]; },
+      generateSet(mode) { return generateKanjiSet(mode, kanjiDict); },
+      async ensureReady() {
+        if (!kanjiDict) await kanjiDictPromise;
+        if (!kanjiDict) {
+          alert('かんじデータの よみこみに 失敗しました');
+          return false;
+        }
+        return true;
+      },
+    },
+    clock: {
+      screen: 'clockQuiz',
+      progressFillId: 'clock-progress-fill',
+      progressTextId: 'clock-progress-text',
+      scoreTextId: 'clock-score-text',
+      submodeLabelId: null,
+      feedbackId: 'clock-feedback',
+      choicesContainerId: 'clock-choices',
+      keypadNextId: 'clock-keypad-next',
+      descriptionId: null,
+      renderPrompt(q) {
+        document.getElementById('clock-face').innerHTML = renderClockFace(q.h, q.m);
+      },
+      feedbackLabel(q) {
+        const opt = q.options[q.answerIndex];
+        return formatClockTime(opt.h, opt.m);
+      },
+      generateSet() { return generateClockSet(); },
+      async ensureReady() { return true; },
+    },
+    choice: {
+      screen: 'choiceQuiz',
+      progressFillId: 'choice-progress-fill',
+      progressTextId: 'choice-progress-text',
+      scoreTextId: 'choice-score-text',
+      submodeLabelId: 'choice-submode-label',
+      feedbackId: 'choice-feedback',
+      choicesContainerId: 'choice-choices',
+      keypadNextId: 'choice-keypad-next',
+      descriptionId: 'choice-description',
+      renderPrompt(q) {
+        const prompt = document.getElementById('choice-prompt');
+        prompt.className = 'choice-prompt ' + choicePromptSize(q.question);
+        prompt.textContent = q.question;
+      },
+      feedbackLabel(q) { return q.choices[q.answerIndex]; },
+      generateSet(mode) { return generateChoiceSet(mode); },
+      async ensureReady() { return true; },
+    },
+  };
+
+  function currentChoiceVariant() {
+    return CHOICE_VARIANTS[kindOfStateMode(state.mode)] ?? null;
+  }
+
+  const ChoicePresenter = {
+    async start(mode) {
+      const kind = kindOfStateMode(mode);
+      const v = CHOICE_VARIANTS[kind];
+      if (!v) return;
+      if (!(await v.ensureReady())) return;
+      state.category = 'choice-any';
+      state.mode = mode;
+      state.submode = null;
+      // clock だけは submode ラベル表示無し (既存挙動)。
+      state.submodeLabel = v.submodeLabelId ? (stateModeInfo(mode)?.label ?? '') : '';
+      state.questions = v.generateSet(mode);
+      state.total = state.questions.length;
+      state.index = 0;
+      state.correctCount = 0;
+      state.phase = 'input';
+      state.sessionElapsedSec = 0;
+      showScreen(v.screen);
+      ChoicePresenter.render();
+    },
+
+    render() {
+      const q = state.questions[state.index];
+      const v = currentChoiceVariant();
+      v.renderPrompt(q);
+      document.getElementById(v.progressTextId).textContent = `${state.index + 1} / ${state.total}`;
+      document.getElementById(v.scoreTextId).textContent = `〇 ${state.correctCount}`;
+      document.getElementById(v.progressFillId).style.width = `${(state.index / state.total) * 100}%`;
+      if (v.submodeLabelId) {
+        document.getElementById(v.submodeLabelId).textContent = state.submodeLabel;
+      }
+
+      const fb = document.getElementById(v.feedbackId);
+      fb.textContent = '';
+      fb.className = 'feedback';
+      if (v.descriptionId) {
+        document.getElementById(v.descriptionId).textContent = '';
+      }
+
+      const choicesEl = document.getElementById(v.choicesContainerId);
+      choicesEl.textContent = '';
+      q.choices.forEach((choice, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.dataset.choiceIndex = String(i);
+        btn.textContent = choice;
+        choicesEl.appendChild(btn);
       });
-      fb.textContent = `こたえは「${formatClockTime(q.options[q.answerIndex].h, q.options[q.answerIndex].m)}」`;
-      fb.className = 'feedback wrong';
-      SoundFx.wrong();
-      document.getElementById('clock-score-text').textContent = `〇 ${state.correctCount}`;
-    }
-  }
-  function nextClockQuestion() {
-    state.index++;
-    if (state.index >= state.total) {
-      finishQuiz();
-    } else {
-      renderClockQuestion();
-    }
-  }
+
+      document.getElementById(v.keypadNextId).classList.add('hidden');
+      state.phase = 'input';
+      state.firstAttemptDone = false;
+      state.questionStartAt = performance.now();
+    },
+
+    handleChoice(index) {
+      if (state.phase === 'feedback') return;
+      const q = state.questions[state.index];
+      const v = currentChoiceVariant();
+      const isCorrect = index === q.answerIndex;
+
+      // スコアは初回試行のみ (B-1)。時間計上も初回 submit で加算 (B-2)。
+      if (!state.firstAttemptDone) {
+        state.firstAttemptDone = true;
+        recordQuestionElapsed();
+        if (isCorrect) state.correctCount++;
+      }
+
+      const buttons = document.querySelectorAll(`#${v.choicesContainerId} .choice-btn`);
+      const fb = document.getElementById(v.feedbackId);
+      document.getElementById(v.scoreTextId).textContent = `〇 ${state.correctCount}`;
+
+      if (isCorrect) {
+        state.phase = 'feedback';
+        buttons.forEach((btn, i) => {
+          btn.disabled = true;
+          if (i === q.answerIndex) btn.classList.add('correct');
+          else if (!btn.classList.contains('wrong')) btn.classList.add('dim');
+        });
+        fb.textContent = 'せいかい！';
+        fb.className = 'feedback correct';
+        SoundFx.correct();
+        // description 表示 (電車の駅名解説など)。description を返さないモードでは
+        // :empty で領域が確保されないよう、descriptionId 自体がない variant では
+        // 何もしない。
+        if (v.descriptionId && q.description) {
+          document.getElementById(v.descriptionId).textContent = q.description;
+        }
+        document.getElementById(v.keypadNextId).classList.remove('hidden');
+      } else {
+        // 誤答時 UI (B-3): 押した誤答は wrong+disabled、他は dim+disabled、
+        // 正解は correct で押せる状態にして能動的に確認させる。
+        state.phase = 'retry';
+        buttons.forEach((btn, i) => {
+          if (i === q.answerIndex) {
+            btn.classList.add('correct');
+            btn.disabled = false;
+          } else if (i === index) {
+            btn.classList.add('wrong');
+            btn.disabled = true;
+          } else {
+            btn.classList.add('dim');
+            btn.disabled = true;
+          }
+        });
+        fb.textContent = `こたえは「${v.feedbackLabel(q)}」`;
+        fb.className = 'feedback wrong';
+        SoundFx.wrong();
+      }
+    },
+
+    next() {
+      state.index++;
+      if (state.index >= state.total) {
+        finishQuiz();
+      } else {
+        ChoicePresenter.render();
+      }
+    },
+
+    // finishQuiz から呼ばれる。progress-fill を 100% にする責務を Presenter に
+    // 閉じ込めることで、finishQuiz 側の DOM ID 分岐 (D-6) を消せる。
+    markFinished() {
+      const v = currentChoiceVariant();
+      if (v) document.getElementById(v.progressFillId).style.width = '100%';
+    },
+  };
 
   // --- 記録 ---
   function todayKey() {
@@ -1770,45 +1664,27 @@
     if (!m) return;
     if (m.subMenu === 'mul') showScreen('mulMenu');
     else if (m.subMenu === 'kanji') showScreen('kanjiMenu');
-    else if (m.kind === 'clock') startClockQuiz();
-    else if (m.kind === 'choice') startChoiceQuiz(m.key);
     else if (m.kind === 'keypad') startQuiz(m.key);
+    else ChoicePresenter.start(m.key); // clock / choice / kanji (subMenu 経由)
   });
   document.querySelectorAll('[data-sub]').forEach(btn => {
     btn.addEventListener('click', () => startQuiz('mul', btn.dataset.sub));
   });
   document.querySelectorAll('[data-kanji-mode]').forEach(btn => {
-    btn.addEventListener('click', () => startKanjiQuiz(btn.dataset.kanjiMode));
+    btn.addEventListener('click', () => ChoicePresenter.start(btn.dataset.kanjiMode));
   });
-  document.getElementById('kanji-choices').addEventListener('click', (e) => {
-    const btn = e.target.closest('.choice-btn');
-    if (!btn) return;
-    handleKanjiChoice(parseInt(btn.dataset.choiceIndex, 10));
-  });
-  document.querySelectorAll('[data-kanji-key]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.kanjiKey === 'next') nextKanjiQuestion();
+  // 4 択系 3 セクションはいずれも ChoicePresenter に dispatch。
+  // Presenter 側で state.mode から variant を引くので、どのコンテナから
+  // 発火してもよい (同時に表示されない前提)。
+  ['kanji-choices', 'clock-choices', 'choice-choices'].forEach(id => {
+    document.getElementById(id).addEventListener('click', (e) => {
+      const btn = e.target.closest('.choice-btn');
+      if (!btn) return;
+      ChoicePresenter.handleChoice(parseInt(btn.dataset.choiceIndex, 10));
     });
   });
-  document.getElementById('clock-choices').addEventListener('click', (e) => {
-    const btn = e.target.closest('.choice-btn');
-    if (!btn) return;
-    handleClockChoice(parseInt(btn.dataset.choiceIndex, 10));
-  });
-  document.querySelectorAll('[data-clock-key]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.clockKey === 'next') nextClockQuestion();
-    });
-  });
-  document.getElementById('choice-choices').addEventListener('click', (e) => {
-    const btn = e.target.closest('.choice-btn');
-    if (!btn) return;
-    handleChoiceSelect(parseInt(btn.dataset.choiceIndex, 10));
-  });
-  document.querySelectorAll('[data-choice-key]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.choiceKey === 'next') nextChoiceQuestion();
-    });
+  ['btn-kanji-next', 'btn-clock-next', 'btn-choice-next'].forEach(id => {
+    document.getElementById(id).addEventListener('click', () => ChoicePresenter.next());
   });
   document.getElementById('link-stats').addEventListener('click', (e) => {
     e.preventDefault();
@@ -1830,10 +1706,8 @@
         // レジストリの kind から restart 先を決める。
         // Phase E で state.presenter に一元化予定。
         const kind = kindOfStateMode(state.mode);
-        if (kind === 'kanji') startKanjiQuiz(state.mode);
-        else if (kind === 'clock') startClockQuiz();
-        else if (kind === 'choice') startChoiceQuiz(state.mode);
-        else if (kind === 'keypad') startQuiz(state.mode, state.submode);
+        if (kind === 'keypad') startQuiz(state.mode, state.submode);
+        else ChoicePresenter.start(state.mode); // kanji / clock / choice
       } else {
         showScreen(dest);
       }
