@@ -12,7 +12,10 @@ const CHOICE_COUNT = 4;
  * @property {string} description  正解時に表示する子ども向け説明文
  */
 
-/** ひらがな ➡ かんじ */
+/**
+ * ひらがな ➡ かんじ
+ * @returns {import('../quiz/question.mjs').ChoiceQuestion}
+ */
 export function generateTrainHiraToKanji(rng = Math.random) {
   const entry = pickRandom(TRAIN_ENTRIES, rng);
   const distractors = sample(
@@ -22,6 +25,7 @@ export function generateTrainHiraToKanji(rng = Math.random) {
   ).map((e) => e.kanji);
   const choices = shuffle([entry.kanji, ...distractors], rng);
   return {
+    kind: 'choice',
     subtype: 'train-h-to-k',
     question: entry.hiragana,
     choices,
@@ -30,7 +34,10 @@ export function generateTrainHiraToKanji(rng = Math.random) {
   };
 }
 
-/** かんじ ➡ ひらがな */
+/**
+ * かんじ ➡ ひらがな
+ * @returns {import('../quiz/question.mjs').ChoiceQuestion}
+ */
 export function generateTrainKanjiToHira(rng = Math.random) {
   const entry = pickRandom(TRAIN_ENTRIES, rng);
   const distractors = sample(
@@ -40,6 +47,7 @@ export function generateTrainKanjiToHira(rng = Math.random) {
   ).map((e) => e.hiragana);
   const choices = shuffle([entry.hiragana, ...distractors], rng);
   return {
+    kind: 'choice',
     subtype: 'train-k-to-h',
     question: entry.kanji,
     choices,

@@ -22,6 +22,7 @@ export function generateKataToHira(rng = Math.random) {
   return generateKanaProblem(1, 0, 'kata-to-hira', rng);
 }
 
+/** @returns {import('../quiz/question.mjs').ChoiceQuestion} */
 function generateKanaProblem(qCol, aCol, subtype, rng) {
   const pair = pickRandom(KANA_PAIRS, rng);
   const question = pair[qCol];
@@ -30,6 +31,7 @@ function generateKanaProblem(qCol, aCol, subtype, rng) {
   const distractors = sample(others, CHOICE_COUNT - 1, rng).map((p) => p[aCol]);
   const choices = shuffle([correct, ...distractors], rng);
   return {
+    kind: 'choice',
     subtype,
     question,
     choices,
@@ -60,6 +62,7 @@ export function generateAntonym(rng = Math.random) {
   const distractors = sample(uniquePool, CHOICE_COUNT - 1, rng);
   const choices = shuffle([correct, ...distractors], rng);
   return {
+    kind: 'choice',
     subtype: 'antonym',
     question,
     choices,

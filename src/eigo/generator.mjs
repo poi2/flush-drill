@@ -36,12 +36,16 @@ function collectDistractors(entry, key, n, rng) {
   return result;
 }
 
-/** にほんご → えいご */
+/**
+ * にほんご → えいご
+ * @returns {import('../quiz/question.mjs').ChoiceQuestion}
+ */
 export function generateJaToEn(rng = Math.random) {
   const entry = pickRandom(VOCAB, rng);
   const distractors = collectDistractors(entry, 'en', CHOICE_COUNT - 1, rng);
   const choices = shuffle([entry.en, ...distractors], rng);
   return {
+    kind: 'choice',
     subtype: 'ja-to-en',
     question: entry.ja,
     choices,
@@ -49,12 +53,16 @@ export function generateJaToEn(rng = Math.random) {
   };
 }
 
-/** えいご → にほんご */
+/**
+ * えいご → にほんご
+ * @returns {import('../quiz/question.mjs').ChoiceQuestion}
+ */
 export function generateEnToJa(rng = Math.random) {
   const entry = pickRandom(VOCAB, rng);
   const distractors = collectDistractors(entry, 'ja', CHOICE_COUNT - 1, rng);
   const choices = shuffle([entry.ja, ...distractors], rng);
   return {
+    kind: 'choice',
     subtype: 'en-to-ja',
     question: entry.en,
     choices,

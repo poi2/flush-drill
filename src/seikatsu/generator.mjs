@@ -15,12 +15,16 @@ const CHOICE_COUNT = 4;
  * @property {number} answerIndex
  */
 
-/** ○○ は どの きせつ？ */
+/**
+ * ○○ は どの きせつ？
+ * @returns {import('../quiz/question.mjs').ChoiceQuestion}
+ */
 export function generateSeason(rng = Math.random) {
   const target = pickRandom(SEASON_WORDS, rng);
   // 選択肢は 4 季すべて。安定した並びで固定してもよいが flush drill として位置記憶を防ぐためシャッフル。
   const choices = shuffle([...SEASONS], rng);
   return {
+    kind: 'choice',
     subtype: 'season',
     question: `「${target.word}」は どの きせつ？`,
     choices,
@@ -28,7 +32,10 @@ export function generateSeason(rng = Math.random) {
   };
 }
 
-/** つぎの なかで ○○は どれ？ */
+/**
+ * つぎの なかで ○○は どれ？
+ * @returns {import('../quiz/question.mjs').ChoiceQuestion}
+ */
 export function generateGroup(rng = Math.random) {
   const keys = Object.keys(GROUP_CATEGORIES);
   const targetKey = pickRandom(keys, rng);
@@ -42,6 +49,7 @@ export function generateGroup(rng = Math.random) {
   const distractors = sample(otherPool, CHOICE_COUNT - 1, rng);
   const choices = shuffle([correct, ...distractors], rng);
   return {
+    kind: 'choice',
     subtype: 'group',
     question: `つぎの なかで「${targetKey}」は どれ？`,
     choices,
