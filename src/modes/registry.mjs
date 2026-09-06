@@ -19,18 +19,23 @@ export const CATEGORIES = [
 ];
 
 // モード kind の意味:
-// - 'keypad': 数値入力 (add/sub/mul)。KeypadPresenter で扱う。
-// - 'kanji' : かんじサブメニューの親。実 state.mode は subModes[].key。
-// - 'clock' : とけい。SVG 時計盤 + 4 択。
-// - 'choice': 汎用 4 択。generator を直接持つ。
+// - 'keypad'  : 数値入力 (add/sub/mul)。KeypadPresenter で扱う。
+// - 'kanji'   : かんじサブメニューの親。実 state.mode は subModes[].key。
+// - 'clock'   : とけい。SVG 時計盤 + 4 択。
+// - 'choice'  : 汎用 4 択。generator を直接持つ。
+// - '100masu' : 100 ます計算 (add/sub/mul)。Masu100Presenter が扱う。
+//               タイム計測 + 正解ロック方式で、通常の keypad 系とは
+//               ライフサイクルが違うため kind を分けている。
 // kanji / clock / choice は ChoicePresenter が variant table 経由で扱う。
 //
-// subMenu: 'mul' | 'kanji' | undefined
-//   'mul'  → mulMenu 画面を挟んで keypad Presenter に入る
-//   'kanji'→ kanjiMenu 画面を挟んで ChoicePresenter (kanji variant) に入る
+// subMenu: 'mul' | 'kanji' | 'masu100' | undefined
+//   'mul'    → mulMenu 画面を挟んで keypad Presenter に入る
+//   'kanji'  → kanjiMenu 画面を挟んで ChoicePresenter (kanji variant) に入る
+//   'masu100'→ masu100Menu 画面を挟んで Masu100Presenter に入る
 //
 // questionsPerSet: 1 セットの出題数。未指定なら 10。
 //   反射的に反復する量が少なすぎるモード (add / sub) だけ増やす。
+//   100masu 系は generator 側で 100 問固定なので questionsPerSet は使わない。
 export const MODES = [
   // さんすう
   { key: 'add',      category: 'arith', label: 'たしざん',        shortLabel: 'たし', emoji: '➕',  kind: 'keypad', symbol: '＋', questionsPerSet: 20 },
@@ -38,6 +43,14 @@ export const MODES = [
   { key: 'mul',      category: 'arith', label: 'かけざん',        shortLabel: 'かけ', emoji: '✖️', kind: 'keypad', symbol: '×',  subMenu: 'mul' },
   { key: 'ten-comp', category: 'arith', label: '10 の あわせて', shortLabel: '10あ', emoji: '🔟', kind: 'choice', generator: generateTenComp },
   { key: 'parity',   category: 'arith', label: 'ぐうすう・きすう', shortLabel: '偶奇', emoji: '⚖️', kind: 'choice', generator: generateParity },
+  {
+    key: 'masu100', category: 'arith', label: '100 ます けいさん', emoji: '🏁', kind: '100masu', subMenu: 'masu100',
+    subModes: [
+      { key: 'masu100-add', label: '100 ます たしざん', shortLabel: '100たし', symbol: '＋', op: 'add' },
+      { key: 'masu100-sub', label: '100 ます ひきざん', shortLabel: '100ひき', symbol: '－', op: 'sub' },
+      { key: 'masu100-mul', label: '100 ます かけざん', shortLabel: '100かけ', symbol: '×',  op: 'mul' },
+    ],
+  },
 
   // こくご
   {
@@ -87,7 +100,8 @@ export function kindOfStateMode(stateMode) {
 }
 
 // モードべつ棒グラフのラベル定義。レジストリから派生 = 追加漏れが構造的に起きない。
-export const MODE_BREAKDOWN_DEFS = Array.from(
-  STATE_MODES.values(),
-  m => ({ key: m.key, label: m.shortLabel }),
-);
+// 100masu 系は日々の正解数ではなく attempt ごとのタイムを別 storage で追う独立系のため、
+// 「モードべつ (きょう)」棒グラフからは除外する。
+export const MODE_BREAKDOWN_DEFS = Array.from(STATE_MODES.values())
+  .filter(m => m.kind !== '100masu')
+  .map(m => ({ key: m.key, label: m.shortLabel }));

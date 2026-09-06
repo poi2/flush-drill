@@ -9,7 +9,7 @@ import {
   kindOfStateMode,
 } from '../src/modes/registry.mjs';
 
-const KIND_VALUES = ['keypad', 'kanji', 'clock', 'choice'];
+const KIND_VALUES = ['keypad', 'kanji', 'clock', 'choice', '100masu'];
 
 test('MODES: 各エントリに key/label/emoji/category/kind が揃っている', () => {
   for (const m of MODES) {
@@ -65,9 +65,10 @@ test('MODES: kind==="kanji" は subModes を持ち各 subMode に key/label/shor
   }
 });
 
-test('STATE_MODES: 既知の全 state mode を含む (kanji 展開後)', () => {
+test('STATE_MODES: 既知の全 state mode を含む (kanji / masu100 展開後)', () => {
   const expected = [
     'add', 'sub', 'mul', 'ten-comp', 'parity',
+    'masu100-add', 'masu100-sub', 'masu100-mul',
     'k2r', 'r2k', 'ksent',
     'hira-to-kata', 'kata-to-hira', 'antonym',
     'ja-to-en', 'en-to-ja',
@@ -76,6 +77,14 @@ test('STATE_MODES: 既知の全 state mode を含む (kanji 展開後)', () => {
   ];
   for (const k of expected) {
     assert.ok(STATE_MODES.has(k), `state mode ${k} missing`);
+  }
+});
+
+test('STATE_MODES: masu100 サブモードは kind === "100masu" と parent.key === "masu100"', () => {
+  for (const k of ['masu100-add', 'masu100-sub', 'masu100-mul']) {
+    const sm = STATE_MODES.get(k);
+    assert.equal(sm.kind, '100masu');
+    assert.equal(sm.parent?.key, 'masu100');
   }
 });
 
@@ -98,10 +107,20 @@ test('MODE_BREAKDOWN_DEFS: train-h2k / train-k2h を含む (B-13, AC-1)', () => 
   assert.ok(keys.includes('train-k2h'));
 });
 
-test('MODE_BREAKDOWN_DEFS: STATE_MODES のキーと過不足なく一致する', () => {
+test('MODE_BREAKDOWN_DEFS: 100masu を除いた STATE_MODES と過不足なく一致する', () => {
   const defKeys = [...MODE_BREAKDOWN_DEFS.map(d => d.key)].sort();
-  const stateKeys = [...STATE_MODES.keys()].sort();
+  const stateKeys = [...STATE_MODES.values()]
+    .filter(m => m.kind !== '100masu')
+    .map(m => m.key)
+    .sort();
   assert.deepEqual(defKeys, stateKeys);
+});
+
+test('MODE_BREAKDOWN_DEFS: masu100-* を含まない (別 storage なので混ぜない)', () => {
+  const keys = MODE_BREAKDOWN_DEFS.map(d => d.key);
+  for (const k of ['masu100-add', 'masu100-sub', 'masu100-mul']) {
+    assert.ok(!keys.includes(k), `${k} must NOT be in breakdown defs`);
+  }
 });
 
 test('kindOfStateMode: 直接モードは自 kind を返す', () => {
