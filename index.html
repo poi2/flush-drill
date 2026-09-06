@@ -306,12 +306,6 @@
     margin: 6px 0 12px;
     line-height: 1.5;
   }
-  .masu100-time {
-    font-variant-numeric: tabular-nums;
-    color: var(--primary-dark);
-    font-weight: bold;
-  }
-  .masu100-time.mistakes { color: var(--wrong); font-weight: bold; }
   .result-score.result-score-time {
     font-size: 48px;
     letter-spacing: -0.02em;
@@ -686,7 +680,7 @@
     <div class="quiz-header">
       <button class="back-btn" data-goto="masu100Menu">‹ もどる</button>
       <span id="masu100-progress-text">1 / 100</span>
-      <span class="masu100-time" id="masu100-time-text">0:00.0</span>
+      <span></span>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="masu100-progress-fill"></div></div>
     <div id="masu100-submode-label" class="submode-label"></div>
@@ -1168,10 +1162,6 @@
     stats: document.getElementById('screen-stats'),
   };
   function showScreen(name) {
-    // 100 ます計算のクイズ画面から離れるときはタイマー計測を止める。
-    // Masu100Presenter._stopTimer は cancelAnimationFrame するので、
-    // 走っていない状態で呼んでも副作用はない。
-    if (name !== 'masu100Quiz') Masu100Presenter._stopTimer();
     Object.entries(screens).forEach(([k, el]) => {
       el.classList.toggle('hidden', k !== name);
     });
@@ -1731,7 +1721,6 @@
   // ライフサイクルが独立している。ステート (index, correctCount, input)
   // は既存 state を流用し、タイマー関連だけ Presenter 内で保持する。
   const Masu100Presenter = {
-    timerRafId: 0,
     sessionStartAt: 0,
     mistakes: 0,
 
@@ -1756,31 +1745,11 @@
       state.input = '';
       state.phase = 'input';
       Masu100Presenter.mistakes = 0;
+      // 経過時間はプレイ中には表示せず、完了時にのみ計算する。
+      // 画面に秒数が刻まれると子どもが焦るので、内部でのみ持つ。
       Masu100Presenter.sessionStartAt = performance.now();
       showScreen('masu100Quiz');
       Masu100Presenter.render();
-      Masu100Presenter._startTimer();
-    },
-
-    _startTimer() {
-      // ライブ更新は rAF ベース。sessionStartAt を基準にするので
-      // rAF の drift が累積しても表示ずれにならない。
-      Masu100Presenter._stopTimer();
-      const tick = () => {
-        if (state.presenter !== Masu100Presenter) return;
-        const el = document.getElementById('masu100-time-text');
-        if (el) {
-          const sec = (performance.now() - Masu100Presenter.sessionStartAt) / 1000;
-          el.textContent = formatMasu100Time(sec);
-        }
-        Masu100Presenter.timerRafId = requestAnimationFrame(tick);
-      };
-      Masu100Presenter.timerRafId = requestAnimationFrame(tick);
-    },
-
-    _stopTimer() {
-      if (Masu100Presenter.timerRafId) cancelAnimationFrame(Masu100Presenter.timerRafId);
-      Masu100Presenter.timerRafId = 0;
     },
 
     render() {
@@ -1876,7 +1845,6 @@
     },
 
     _finish() {
-      Masu100Presenter._stopTimer();
       const elapsedSec = (performance.now() - Masu100Presenter.sessionStartAt) / 1000;
       const roundedSec = Math.round(elapsedSec * 10) / 10;
       const op = Masu100Presenter._opOf(state.mode);
@@ -1897,7 +1865,6 @@
 
     markFinished() {
       document.getElementById('masu100-progress-fill').style.width = '100%';
-      Masu100Presenter._stopTimer();
     },
   };
 
