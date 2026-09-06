@@ -1810,10 +1810,23 @@
       }
       if (/^\d$/.test(key)) {
         if (state.input.length >= 3) return;
-        if (state.input === '' && key === '0') { state.input = '0'; Masu100Presenter._renderInput(); return; }
-        if (state.input === '0') { state.input = key; Masu100Presenter._renderInput(); return; }
-        state.input += key;
+        if (state.input === '' && key === '0') state.input = '0';
+        else if (state.input === '0') state.input = key;
+        else state.input += key;
         Masu100Presenter._renderInput();
+        Masu100Presenter._maybeAutoSubmit();
+      }
+    },
+
+    // 100 ます計算は反射的にたくさん解くドリルなので、正解の桁数に
+    // 達した時点で自動で評価する。他モードと違って 決定 タップを 100 回
+    // 省ける効果が大きい。決定ボタンは残してあるので、桁数未達の入力を
+    // 明示的に送る使い方 (答えが 1 桁だと自己判断した場合など) もできる。
+    _maybeAutoSubmit() {
+      if (state.phase !== 'input') return;
+      const q = state.questions[state.index];
+      if (state.input.length === String(q.ans).length) {
+        Masu100Presenter._submit();
       }
     },
 
