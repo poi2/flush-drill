@@ -19,7 +19,7 @@ export const CATEGORIES = [
 ];
 
 // モード kind の意味:
-// - 'keypad'  : 数値入力 (add/sub/mul)。KeypadPresenter で扱う。
+// - 'keypad'  : 数値入力 (add/sub/mul/mix3)。KeypadPresenter で扱う。
 // - 'kanji'   : かんじサブメニューの親。実 state.mode は subModes[].key。
 // - 'clock'   : とけい。SVG 時計盤 + 4 択。
 // - 'choice'  : 汎用 4 択。generator を直接持つ。
@@ -28,10 +28,11 @@ export const CATEGORIES = [
 //               ライフサイクルが違うため kind を分けている。
 // kanji / clock / choice は ChoicePresenter が variant table 経由で扱う。
 //
-// subMenu: 'mul' | 'kanji' | 'masu100' | undefined
+// subMenu: 'mul' | 'kanji' | 'masu100' | 'mix3' | undefined
 //   'mul'    → mulMenu 画面を挟んで keypad Presenter に入る
 //   'kanji'  → kanjiMenu 画面を挟んで ChoicePresenter (kanji variant) に入る
 //   'masu100'→ masu100Menu 画面を挟んで Masu100Presenter に入る
+//   'mix3'   → mix3Menu 画面を挟んで KeypadPresenter (mix3 variant) に入る
 //
 // questionsPerSet: 1 セットの出題数。未指定なら 10。
 //   反射的に反復する量が少なすぎるモード (add / sub) だけ増やす。
@@ -49,6 +50,14 @@ export const MODES = [
       { key: 'masu100-add', label: '100 ます たしざん', shortLabel: '100たし', symbol: '＋', op: 'add' },
       { key: 'masu100-sub', label: '100 ます ひきざん', shortLabel: '100ひき', symbol: '－', op: 'sub' },
       { key: 'masu100-mul', label: '100 ます かけざん', shortLabel: '100かけ', symbol: '×',  op: 'mul' },
+    ],
+  },
+  {
+    key: 'mix3', category: 'arith', label: 'たすひく ミックス', emoji: '🔀', kind: 'keypad', subMenu: 'mix3',
+    subModes: [
+      { key: 'mix3-pp', label: 'たすたす (＋＋)', shortLabel: 'たすたす', course: 'pp' },
+      { key: 'mix3-pm', label: 'たすひく (＋－ / －＋)', shortLabel: 'たすひく', course: 'pm' },
+      { key: 'mix3-mm', label: 'ひくひく (－－)', shortLabel: 'ひくひく', course: 'mm' },
     ],
   },
 
