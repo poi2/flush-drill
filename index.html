@@ -96,6 +96,7 @@
   .mode-btn[data-mode="ten-comp"] { border-color: #4db6ac; }
   .mode-btn[data-mode="parity"] { border-color: #a1887f; }
   .mode-btn[data-mode="masu100"] { border-color: #ef5350; }
+  .mode-btn[data-mode="mix3"] { border-color: #9575cd; }
   .mode-btn[data-mode="kanji"] { border-color: #e57373; }
   .mode-btn[data-mode="hira-to-kata"] { border-color: #f48fb1; }
   .mode-btn[data-mode="kata-to-hira"] { border-color: #f06292; }
@@ -274,6 +275,40 @@
   }
   .random-btn:active { transform: scale(0.98); }
   .random-btn .hint { font-size: 13px; color: var(--muted); font-weight: normal; }
+
+  /* --- たすひく ミックス サブメニュー --- */
+  .mix3-menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .mix3-menu-btn {
+    background: var(--panel);
+    border: 2px solid #9575cd;
+    border-radius: 14px;
+    padding: 18px 20px;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .mix3-menu-btn:active { transform: scale(0.98); }
+  .mix3-menu-btn .hint { font-size: 13px; color: var(--muted); font-weight: normal; }
+  .mix3-hint {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin: 6px 0 12px;
+    line-height: 1.5;
+  }
+
+  /* 3項計算は式が長くなるので、既定の 52px より一段小さくして枠内に収める。 */
+  .expr.expr-3term { font-size: 40px; letter-spacing: 2px; }
 
   /* --- 100 ます計算 サブメニュー / クイズ --- */
   .masu100-menu-list {
@@ -707,6 +742,30 @@
     </div>
   </section>
 
+  <!-- たすひく ミックス サブメニュー -->
+  <section id="screen-mix3-menu" class="screen hidden">
+    <div class="quiz-header">
+      <button class="back-btn" data-goto="menu">‹ もどる</button>
+      <span>たすひく ミックス</span>
+      <span></span>
+    </div>
+    <div class="mix3-hint">
+      3つの かずを たしたり ひいたり<br>
+      1〜5 の はんいで 10もん
+    </div>
+    <div class="mix3-menu-list">
+      <button class="mix3-menu-btn" data-mix3-mode="mix3-pp">
+        <span>たすたす</span><span class="hint">＋ ＋</span>
+      </button>
+      <button class="mix3-menu-btn" data-mix3-mode="mix3-pm">
+        <span>たすひく</span><span class="hint">＋ － ／ － ＋</span>
+      </button>
+      <button class="mix3-menu-btn" data-mix3-mode="mix3-mm">
+        <span>ひくひく</span><span class="hint">－ －</span>
+      </button>
+    </div>
+  </section>
+
   <!-- かんじ サブメニュー -->
   <section id="screen-kanji-menu" class="screen hidden">
     <div class="quiz-header">
@@ -939,6 +998,7 @@
   } from './src/densha/generator.mjs';
   import { summarize, modeBreakdown } from './src/stats/index.mjs';
   import { generate100masuSet } from './src/masu100/generator.mjs';
+  import { generateMix3Set } from './src/mix3/generator.mjs';
   import {
     STORAGE_KEY as MASU100_STORAGE_KEY,
     OPS as MASU100_OPS,
@@ -1108,6 +1168,11 @@
     if (mode === 'mul' && submode) {
       return generateMulSet(submode);
     }
+    if (mode && mode.startsWith('mix3-')) {
+      // mix3-pp / mix3-pm / mix3-mm → コース記号 (pp/pm/mm) を切り出して委譲。
+      const course = mode.slice('mix3-'.length);
+      return generateMix3Set(course, undefined, questionsForMode(mode));
+    }
     const n = questionsForMode(mode);
     const set = [];
     for (let i = 0; i < n; i++) {
@@ -1152,6 +1217,7 @@
     menu: document.getElementById('screen-menu'),
     mulMenu: document.getElementById('screen-mul-menu'),
     masu100Menu: document.getElementById('screen-masu100-menu'),
+    mix3Menu: document.getElementById('screen-mix3-menu'),
     kanjiMenu: document.getElementById('screen-kanji-menu'),
     quiz: document.getElementById('screen-quiz'),
     masu100Quiz: document.getElementById('screen-masu100-quiz'),
@@ -1186,7 +1252,11 @@
       state.presenter = KeypadPresenter;
       state.mode = mode;
       state.submode = submode || null;
-      state.submodeLabel = (mode === 'mul' && submode) ? (MUL_SUBMODES[submode] || '') : '';
+      // mul のサブモード (r1/r2/r3/row-*) は独自ラベル、mix3 は sub-mode 自体が
+      // モード扱いなので stateModeInfo からラベルを引く (キーは 'mix3-pp' 等)。
+      if (mode === 'mul' && submode) state.submodeLabel = MUL_SUBMODES[submode] || '';
+      else if (mode && mode.startsWith('mix3-')) state.submodeLabel = stateModeInfo(mode)?.label || '';
+      else state.submodeLabel = '';
       state.questions = generateSet(mode, state.submode);
       state.total = state.questions.length;
       state.index = 0;
@@ -1200,7 +1270,11 @@
 
     render() {
       const q = state.questions[state.index];
-      document.getElementById('expr').textContent = `${q.a} ${q.symbol} ${q.b} =`;
+      // 3項計算 (mix3) は generator が完成した式文字列を持つのでそれを使う。
+      // 従来の 2 項系は a/b/symbol から素直に組み立てる。
+      const exprEl = document.getElementById('expr');
+      exprEl.textContent = q.expr ?? `${q.a} ${q.symbol} ${q.b} =`;
+      exprEl.classList.toggle('expr-3term', !!q.expr);
       document.getElementById('quiz-progress-text').textContent = `${state.index + 1} / ${state.total}`;
       document.getElementById('quiz-score-text').textContent = `〇 ${state.correctCount}`;
       document.getElementById('progress-fill').style.width = `${(state.index / state.total) * 100}%`;
@@ -1346,8 +1420,10 @@
     document.getElementById('result-total').textContent = state.total;
     // submode 詳細は かけざん 系のみ。他カテゴリでは state.submodeLabel が
     // モード名そのものなので重複表示を避ける。
-    const submode = (state.presenter === KeypadPresenter && state.submodeLabel) ? ` ／ ${state.submodeLabel}` : '';
-    document.getElementById('result-mode').textContent = (stateModeInfo(state.mode)?.label ?? '') + submode;
+    const modeLabel = stateModeInfo(state.mode)?.label ?? '';
+    const submode = (state.presenter === KeypadPresenter && state.submodeLabel && state.submodeLabel !== modeLabel)
+      ? ` ／ ${state.submodeLabel}` : '';
+    document.getElementById('result-mode').textContent = modeLabel + submode;
     const msg = document.getElementById('result-message');
     if (state.correctCount === state.total) msg.textContent = '🏆 パーフェクト！';
     else if (state.correctCount >= 8) msg.textContent = '👏 すごい！';
@@ -2134,8 +2210,12 @@
     if (m.subMenu === 'mul') showScreen('mulMenu');
     else if (m.subMenu === 'kanji') showScreen('kanjiMenu');
     else if (m.subMenu === 'masu100') showScreen('masu100Menu');
+    else if (m.subMenu === 'mix3') showScreen('mix3Menu');
     else if (m.kind === 'keypad') KeypadPresenter.start(m.key);
     else launchPresenter(ChoicePresenter.start(m.key)); // clock / choice
+  });
+  document.querySelectorAll('[data-mix3-mode]').forEach(btn => {
+    btn.addEventListener('click', () => KeypadPresenter.start(btn.dataset.mix3Mode));
   });
   document.querySelectorAll('[data-masu100-mode]').forEach(btn => {
     btn.addEventListener('click', () => Masu100Presenter.start(btn.dataset.masu100Mode));

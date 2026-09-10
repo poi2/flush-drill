@@ -46,9 +46,12 @@ test('MODES: kind==="choice" は generator を持つ', () => {
   }
 });
 
-test('MODES: kind==="keypad" は symbol を持つ', () => {
+test('MODES: kind==="keypad" は symbol を持つ (subModes を持つコンテナは除く)', () => {
+  // subModes を持つ keypad モード (mix3 など) は sub-mode ごとに違う演算子を
+  // 使うため、親レベルの symbol は存在しない。直接呼び出される keypad モード
+  // (add/sub/mul) のみが symbol を持つ。
   for (const m of MODES) {
-    if (m.kind === 'keypad') {
+    if (m.kind === 'keypad' && !m.subModes) {
       assert.equal(typeof m.symbol, 'string', `${m.key} needs symbol`);
     }
   }
