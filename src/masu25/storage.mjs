@@ -1,19 +1,19 @@
-// 100 ます計算の attempt 履歴の永続化と集計。DOM を触らない純関数群。
+// 25 ます計算の attempt 履歴の永続化と集計。DOM を触らない純関数群。
 // localStorage キーは `flushdrill_stats_v1` とは独立。
 //
 // 保存形式:
 //   { add: Attempt[], sub: Attempt[], mul: Attempt[] }
 // Attempt = { date: 'YYYY-MM-DD', sec: number, mistakes: number, at: number }
 //   - date: 完了日 (集計用)
-//   - sec:  最初の 1 問表示〜100 問目正答までの秒数 (小数 1 桁で丸め)
+//   - sec:  最初の 1 問表示〜25 問目正答までの秒数 (小数 1 桁で丸め)
 //   - mistakes: 誤答クリック数 (途中脱落は保存されないので、常に完走時の数)
 //   - at:  完了時刻 (epoch ms)。同日中の attempt 並び順にも使う。
 
 export const OPS = /** @type {const} */ (['add', 'sub', 'mul']);
-export const STORAGE_KEY = 'flushdrill_100masu_v1';
+export const STORAGE_KEY = 'flushdrill_masu25_v1';
 
 /**
- * @typedef {Object} Masu100Attempt
+ * @typedef {Object} Masu25Attempt
  * @property {string} date  'YYYY-MM-DD'
  * @property {number} sec
  * @property {number} mistakes
@@ -26,7 +26,7 @@ function emptyStore() {
 
 /**
  * 生の store を正規化。壊れたキーを補完し、想定外のキーを無視する。
- * @returns {{add: Masu100Attempt[], sub: Masu100Attempt[], mul: Masu100Attempt[]}}
+ * @returns {{add: Masu25Attempt[], sub: Masu25Attempt[], mul: Masu25Attempt[]}}
  */
 export function normalize(raw) {
   const out = emptyStore();
@@ -50,7 +50,7 @@ export function normalize(raw) {
  * 完了時刻順を維持したいので、末尾に push する運用を前提にする。
  * @param {ReturnType<typeof normalize>} store
  * @param {'add'|'sub'|'mul'} op
- * @param {Masu100Attempt} attempt
+ * @param {Masu25Attempt} attempt
  * @returns {ReturnType<typeof normalize>}
  */
 export function appendAttempt(store, op, attempt) {

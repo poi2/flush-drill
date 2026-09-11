@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildLineChartModel, CHART_COLORS } from '../src/masu100/lineChart.mjs';
+import { buildLineChartModel, CHART_COLORS } from '../src/masu25/lineChart.mjs';
 
 test('全 op で attempt 0 なら empty: true, series 空', () => {
   const m = buildLineChartModel({ add: [], sub: [], mul: [] });

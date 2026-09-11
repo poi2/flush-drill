@@ -1,21 +1,23 @@
-// 100 ます計算の出題ジェネレータ。1..10 と 11..20 の全組み合わせを
-// PRNG でシャッフルして返す。Presenter は結果を先頭から順に出題する。
+// 25 ます計算の出題ジェネレータ。100 ます相当のペア集合から毎回 25 問を
+// PRNG で抽出して返す。Presenter は結果を先頭から順に出題する。
 //
-// 出題数は演算に関係なく 100 問固定 (100 ます計算の定義そのもの)。
-// - add: 1..10 + 1..10  (答え 2..20)
-// - sub: 11..20 - 1..10 (答え 1..19、常に非負)
-// - mul: 1..10 × 1..10  (答え 1..100)
+// 出題数は演算に関係なく 25 問固定 (1 セットあたりの目安時間を短く保つ)。
+// - add: 1..10 + 1..10  (答え 2..20 の 100 組から 25 問)
+// - sub: 11..20 - 1..10 (答え 1..19、常に非負、100 組から 25 問)
+// - mul: 1..10 × 1..10  (答え 1..100、100 組から 25 問)
 
-import { shuffle } from '../kanji/random.mjs';
+import { sample } from '../kanji/random.mjs';
 
 /**
- * @typedef {Object} Masu100Question
+ * @typedef {Object} Masu25Question
  * @property {'keypad'} kind
  * @property {number} a
  * @property {number} b
  * @property {number} ans
  * @property {string} symbol
  */
+
+export const MASU25_SET_SIZE = 25;
 
 const SYMBOLS = { add: '＋', sub: '－', mul: '×' };
 
@@ -45,9 +47,9 @@ function makeQuestion(op, a, b) {
 /**
  * @param {'add'|'sub'|'mul'} op
  * @param {() => number} [rng]
- * @returns {Masu100Question[]}  length 100
+ * @returns {Masu25Question[]}  length 25
  */
-export function generate100masuSet(op, rng = Math.random) {
+export function generateMasu25Set(op, rng = Math.random) {
   if (!SYMBOLS[op]) throw new Error(`unknown op: ${op}`);
-  return shuffle(pairsFor(op), rng).map(([a, b]) => makeQuestion(op, a, b));
+  return sample(pairsFor(op), MASU25_SET_SIZE, rng).map(([a, b]) => makeQuestion(op, a, b));
 }
