@@ -95,7 +95,7 @@
   .mode-btn[data-mode="mul"] { border-color: #81c784; }
   .mode-btn[data-mode="ten-comp"] { border-color: #4db6ac; }
   .mode-btn[data-mode="parity"] { border-color: #a1887f; }
-  .mode-btn[data-mode="masu100"] { border-color: #ef5350; }
+  .mode-btn[data-mode="masu25"] { border-color: #ef5350; }
   .mode-btn[data-mode="mix3"] { border-color: #9575cd; }
   .mode-btn[data-mode="kanji"] { border-color: #e57373; }
   .mode-btn[data-mode="hira-to-kata"] { border-color: #f48fb1; }
@@ -310,14 +310,14 @@
   /* 3項計算は式が長くなるので、既定の 52px より一段小さくして枠内に収める。 */
   .expr.expr-3term { font-size: 40px; letter-spacing: 2px; }
 
-  /* --- 100 ます計算 サブメニュー / クイズ --- */
-  .masu100-menu-list {
+  /* --- 25 ます計算 サブメニュー / クイズ --- */
+  .masu25-menu-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
     margin-top: 8px;
   }
-  .masu100-menu-btn {
+  .masu25-menu-btn {
     background: var(--panel);
     border: 2px solid #ef5350;
     border-radius: 14px;
@@ -331,10 +331,10 @@
     justify-content: space-between;
     align-items: center;
   }
-  .masu100-menu-btn:active { transform: scale(0.98); }
-  .masu100-menu-btn .best { font-size: 13px; color: var(--muted); font-weight: normal; }
-  .masu100-menu-btn .op { font-size: 26px; color: var(--wrong); }
-  .masu100-hint {
+  .masu25-menu-btn:active { transform: scale(0.98); }
+  .masu25-menu-btn .best { font-size: 13px; color: var(--muted); font-weight: normal; }
+  .masu25-menu-btn .op { font-size: 26px; color: var(--wrong); }
+  .masu25-hint {
     text-align: center;
     color: var(--muted);
     font-size: 13px;
@@ -683,62 +683,62 @@
     </div>
   </section>
 
-  <!-- 100 ます計算 サブメニュー -->
-  <section id="screen-masu100-menu" class="screen hidden">
+  <!-- 25 ます計算 サブメニュー -->
+  <section id="screen-masu25-menu" class="screen hidden">
     <div class="quiz-header">
       <button class="back-btn" data-goto="menu">‹ もどる</button>
-      <span>100 ます けいさん</span>
+      <span>25 ます けいさん</span>
       <span></span>
     </div>
-    <div class="masu100-hint">
-      100 もん とけるまでの じかんを はかります<br>
+    <div class="masu25-hint">
+      25 もん とけるまでの じかんを はかります<br>
       ぜんぶ ただしく こたえよう
     </div>
-    <div class="masu100-menu-list">
-      <button class="masu100-menu-btn" data-masu100-mode="masu100-add">
+    <div class="masu25-menu-list">
+      <button class="masu25-menu-btn" data-masu25-mode="masu25-add">
         <span>たしざん</span><span class="op">＋</span>
-        <span class="best" id="masu100-best-add">まだ きろく なし</span>
+        <span class="best" id="masu25-best-add">まだ きろく なし</span>
       </button>
-      <button class="masu100-menu-btn" data-masu100-mode="masu100-sub">
+      <button class="masu25-menu-btn" data-masu25-mode="masu25-sub">
         <span>ひきざん</span><span class="op">－</span>
-        <span class="best" id="masu100-best-sub">まだ きろく なし</span>
+        <span class="best" id="masu25-best-sub">まだ きろく なし</span>
       </button>
-      <button class="masu100-menu-btn" data-masu100-mode="masu100-mul">
+      <button class="masu25-menu-btn" data-masu25-mode="masu25-mul">
         <span>かけざん</span><span class="op">×</span>
-        <span class="best" id="masu100-best-mul">まだ きろく なし</span>
+        <span class="best" id="masu25-best-mul">まだ きろく なし</span>
       </button>
     </div>
   </section>
 
-  <!-- 100 ます計算 クイズ画面 -->
-  <section id="screen-masu100-quiz" class="screen hidden">
+  <!-- 25 ます計算 クイズ画面 -->
+  <section id="screen-masu25-quiz" class="screen hidden">
     <div class="quiz-header">
-      <button class="back-btn" data-goto="masu100Menu">‹ もどる</button>
-      <span id="masu100-progress-text">1 / 100</span>
+      <button class="back-btn" data-goto="masu25Menu">‹ もどる</button>
+      <span id="masu25-progress-text">1 / 25</span>
       <span></span>
     </div>
-    <div class="progress-bar"><div class="progress-fill" id="masu100-progress-fill"></div></div>
-    <div id="masu100-submode-label" class="submode-label"></div>
+    <div class="progress-bar"><div class="progress-fill" id="masu25-progress-fill"></div></div>
+    <div id="masu25-submode-label" class="submode-label"></div>
 
     <div class="question">
-      <div class="expr" id="masu100-expr"></div>
-      <div class="answer-box" id="masu100-answer-box"><span class="answer-placeholder">?</span></div>
-      <div class="feedback" id="masu100-feedback"></div>
+      <div class="expr" id="masu25-expr"></div>
+      <div class="answer-box" id="masu25-answer-box"><span class="answer-placeholder">?</span></div>
+      <div class="feedback" id="masu25-feedback"></div>
     </div>
 
-    <div class="keypad" id="masu100-keypad-input">
-      <button class="key" data-masu100-key="1">1</button>
-      <button class="key" data-masu100-key="2">2</button>
-      <button class="key" data-masu100-key="3">3</button>
-      <button class="key" data-masu100-key="4">4</button>
-      <button class="key" data-masu100-key="5">5</button>
-      <button class="key" data-masu100-key="6">6</button>
-      <button class="key" data-masu100-key="7">7</button>
-      <button class="key" data-masu100-key="8">8</button>
-      <button class="key" data-masu100-key="9">9</button>
-      <button class="key action-clear" data-masu100-key="clear">けす</button>
-      <button class="key" data-masu100-key="0">0</button>
-      <button class="key action-submit" data-masu100-key="submit" id="btn-masu100-submit">けってい</button>
+    <div class="keypad" id="masu25-keypad-input">
+      <button class="key" data-masu25-key="1">1</button>
+      <button class="key" data-masu25-key="2">2</button>
+      <button class="key" data-masu25-key="3">3</button>
+      <button class="key" data-masu25-key="4">4</button>
+      <button class="key" data-masu25-key="5">5</button>
+      <button class="key" data-masu25-key="6">6</button>
+      <button class="key" data-masu25-key="7">7</button>
+      <button class="key" data-masu25-key="8">8</button>
+      <button class="key" data-masu25-key="9">9</button>
+      <button class="key action-clear" data-masu25-key="clear">けす</button>
+      <button class="key" data-masu25-key="0">0</button>
+      <button class="key action-submit" data-masu25-key="submit" id="btn-masu25-submit">けってい</button>
     </div>
   </section>
 
@@ -964,8 +964,8 @@
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">100 ます けいさん タイムの すいい</div>
-      <div id="chart-masu100"></div>
+      <div class="chart-title">25 ます けいさん タイムの すいい</div>
+      <div id="chart-masu25"></div>
     </div>
   </section>
 </div>
@@ -997,17 +997,17 @@
     generateTrainKanjiToHira,
   } from './src/densha/generator.mjs';
   import { summarize, modeBreakdown } from './src/stats/index.mjs';
-  import { generate100masuSet } from './src/masu100/generator.mjs';
+  import { generateMasu25Set } from './src/masu25/generator.mjs';
   import { generateMix3Set } from './src/mix3/generator.mjs';
   import {
-    STORAGE_KEY as MASU100_STORAGE_KEY,
-    OPS as MASU100_OPS,
-    normalize as normalizeMasu100,
-    appendAttempt as appendMasu100Attempt,
-    recentByOp as recentMasu100ByOp,
-    bestTimes as bestMasu100Times,
-  } from './src/masu100/storage.mjs';
-  import { buildLineChartModel, CHART_COLORS, CHART_LABELS } from './src/masu100/lineChart.mjs';
+    STORAGE_KEY as MASU25_STORAGE_KEY,
+    OPS as MASU25_OPS,
+    normalize as normalizeMasu25,
+    appendAttempt as appendMasu25Attempt,
+    recentByOp as recentMasu25ByOp,
+    bestTimes as bestMasu25Times,
+  } from './src/masu25/storage.mjs';
+  import { buildLineChartModel, CHART_COLORS, CHART_LABELS } from './src/masu25/lineChart.mjs';
   import {
     MODES,
     CATEGORIES,
@@ -1216,11 +1216,11 @@
   const screens = {
     menu: document.getElementById('screen-menu'),
     mulMenu: document.getElementById('screen-mul-menu'),
-    masu100Menu: document.getElementById('screen-masu100-menu'),
+    masu25Menu: document.getElementById('screen-masu25-menu'),
     mix3Menu: document.getElementById('screen-mix3-menu'),
     kanjiMenu: document.getElementById('screen-kanji-menu'),
     quiz: document.getElementById('screen-quiz'),
-    masu100Quiz: document.getElementById('screen-masu100-quiz'),
+    masu25Quiz: document.getElementById('screen-masu25-quiz'),
     kanjiQuiz: document.getElementById('screen-kanji-quiz'),
     clockQuiz: document.getElementById('screen-clock-quiz'),
     choiceQuiz: document.getElementById('screen-choice-quiz'),
@@ -1232,7 +1232,7 @@
       el.classList.toggle('hidden', k !== name);
     });
     if (name === 'stats') renderStats();
-    if (name === 'masu100Menu') renderMasu100Menu();
+    if (name === 'masu25Menu') renderMasu25Menu();
   }
 
   // ChoicePresenter.start は async (kanji dict のロード完了待ちなど) のため、
@@ -1414,7 +1414,7 @@
     saveResult(state.mode, state.correctCount, state.total, state.sessionElapsedSec);
     // progress-fill 満タン化 (D-6): Presenter が自分の DOM を知っている。
     state.presenter?.markFinished();
-    // 100masu 系から通常フローに戻る際に隠されていた要素を復帰させる。
+    // masu25 系から通常フローに戻る際に隠されていた要素を復帰させる。
     resetResultForNormal();
     document.getElementById('result-correct').textContent = state.correctCount;
     document.getElementById('result-total').textContent = state.total;
@@ -1791,12 +1791,12 @@
     },
   };
 
-  // --- 100 ます計算 Presenter ---
-  // 通常の keypad / choice とは違い、全 100 問通しでのタイム計測と
+  // --- 25 ます計算 Presenter ---
+  // 通常の keypad / choice とは違い、全 25 問通しでのタイム計測と
   // 「正解するまで次に進めない (誤答はカウントするだけ)」の 2 点で
   // ライフサイクルが独立している。ステート (index, correctCount, input)
   // は既存 state を流用し、タイマー関連だけ Presenter 内で保持する。
-  const Masu100Presenter = {
+  const Masu25Presenter = {
     sessionStartAt: 0,
     mistakes: 0,
 
@@ -1808,43 +1808,43 @@
     },
 
     start(mode) {
-      const op = Masu100Presenter._opOf(mode);
+      const op = Masu25Presenter._opOf(mode);
       if (!op) return;
-      state.presenter = Masu100Presenter;
+      state.presenter = Masu25Presenter;
       state.mode = mode;
       state.submode = null;
       state.submodeLabel = stateModeInfo(mode)?.label ?? '';
-      state.questions = generate100masuSet(op);
+      state.questions = generateMasu25Set(op);
       state.total = state.questions.length;
       state.index = 0;
       state.correctCount = 0;
       state.input = '';
       state.phase = 'input';
-      Masu100Presenter.mistakes = 0;
+      Masu25Presenter.mistakes = 0;
       // 経過時間はプレイ中には表示せず、完了時にのみ計算する。
       // 画面に秒数が刻まれると子どもが焦るので、内部でのみ持つ。
-      Masu100Presenter.sessionStartAt = performance.now();
-      showScreen('masu100Quiz');
-      Masu100Presenter.render();
+      Masu25Presenter.sessionStartAt = performance.now();
+      showScreen('masu25Quiz');
+      Masu25Presenter.render();
     },
 
     render() {
       const q = state.questions[state.index];
-      document.getElementById('masu100-expr').textContent = `${q.a} ${q.symbol} ${q.b} =`;
-      document.getElementById('masu100-progress-text').textContent = `${state.index + 1} / ${state.total}`;
-      document.getElementById('masu100-progress-fill').style.width = `${(state.index / state.total) * 100}%`;
-      document.getElementById('masu100-submode-label').textContent = state.submodeLabel;
-      Masu100Presenter._renderInput();
-      const fb = document.getElementById('masu100-feedback');
+      document.getElementById('masu25-expr').textContent = `${q.a} ${q.symbol} ${q.b} =`;
+      document.getElementById('masu25-progress-text').textContent = `${state.index + 1} / ${state.total}`;
+      document.getElementById('masu25-progress-fill').style.width = `${(state.index / state.total) * 100}%`;
+      document.getElementById('masu25-submode-label').textContent = state.submodeLabel;
+      Masu25Presenter._renderInput();
+      const fb = document.getElementById('masu25-feedback');
       fb.textContent = '';
       fb.className = 'feedback';
-      const box = document.getElementById('masu100-answer-box');
+      const box = document.getElementById('masu25-answer-box');
       box.classList.remove('wrong', 'correct');
       state.phase = 'input';
     },
 
     _renderInput() {
-      const box = document.getElementById('masu100-answer-box');
+      const box = document.getElementById('masu25-answer-box');
       if (state.input === '') {
         box.textContent = '';
         const ph = document.createElement('span');
@@ -1854,34 +1854,34 @@
       } else {
         box.textContent = state.input;
       }
-      document.getElementById('btn-masu100-submit').disabled = (state.input === '');
+      document.getElementById('btn-masu25-submit').disabled = (state.input === '');
     },
 
     handleKey(key) {
-      if (state.presenter !== Masu100Presenter) return;
+      if (state.presenter !== Masu25Presenter) return;
       if (state.phase === 'retry') {
         // 誤答直後: 数字を打ち直すと入力モードに戻る。
         if (/^\d$/.test(key)) {
           state.phase = 'input';
           state.input = key;
-          document.getElementById('masu100-answer-box').classList.remove('wrong');
-          Masu100Presenter._renderInput();
+          document.getElementById('masu25-answer-box').classList.remove('wrong');
+          Masu25Presenter._renderInput();
         } else if (key === 'clear') {
           state.phase = 'input';
           state.input = '';
-          document.getElementById('masu100-answer-box').classList.remove('wrong');
-          Masu100Presenter._renderInput();
+          document.getElementById('masu25-answer-box').classList.remove('wrong');
+          Masu25Presenter._renderInput();
         }
         return;
       }
       if (key === 'clear') {
         state.input = '';
-        Masu100Presenter._renderInput();
+        Masu25Presenter._renderInput();
         return;
       }
       if (key === 'submit') {
         if (state.input === '') return;
-        Masu100Presenter._submit();
+        Masu25Presenter._submit();
         return;
       }
       if (/^\d$/.test(key)) {
@@ -1889,20 +1889,20 @@
         if (state.input === '' && key === '0') state.input = '0';
         else if (state.input === '0') state.input = key;
         else state.input += key;
-        Masu100Presenter._renderInput();
-        Masu100Presenter._maybeAutoSubmit();
+        Masu25Presenter._renderInput();
+        Masu25Presenter._maybeAutoSubmit();
       }
     },
 
-    // 100 ます計算は反射的にたくさん解くドリルなので、正解の桁数に
-    // 達した時点で自動で評価する。他モードと違って 決定 タップを 100 回
+    // 25 ます計算は反射的にたくさん解くドリルなので、正解の桁数に
+    // 達した時点で自動で評価する。他モードと違って 決定 タップを 25 回
     // 省ける効果が大きい。決定ボタンは残してあるので、桁数未達の入力を
     // 明示的に送る使い方 (答えが 1 桁だと自己判断した場合など) もできる。
     _maybeAutoSubmit() {
       if (state.phase !== 'input') return;
       const q = state.questions[state.index];
       if (state.input.length === String(q.ans).length) {
-        Masu100Presenter._submit();
+        Masu25Presenter._submit();
       }
     },
 
@@ -1915,49 +1915,49 @@
         state.input = '';
         SoundFx.correct();
         if (state.index >= state.total) {
-          Masu100Presenter._finish();
+          Masu25Presenter._finish();
         } else {
-          Masu100Presenter.render();
+          Masu25Presenter.render();
         }
       } else {
         // 誤答: mistakes を加算し、正解を打ち直させる。時間はそのまま進行。
-        Masu100Presenter.mistakes++;
+        Masu25Presenter.mistakes++;
         state.phase = 'retry';
-        const box = document.getElementById('masu100-answer-box');
+        const box = document.getElementById('masu25-answer-box');
         box.classList.add('wrong');
-        const fb = document.getElementById('masu100-feedback');
+        const fb = document.getElementById('masu25-feedback');
         fb.textContent = 'ちがうよ もういちど';
         fb.className = 'feedback wrong';
         SoundFx.wrong();
-        document.getElementById('btn-masu100-submit').disabled = true;
+        document.getElementById('btn-masu25-submit').disabled = true;
       }
     },
 
     _finish() {
-      const elapsedSec = (performance.now() - Masu100Presenter.sessionStartAt) / 1000;
+      const elapsedSec = (performance.now() - Masu25Presenter.sessionStartAt) / 1000;
       const roundedSec = Math.round(elapsedSec * 10) / 10;
-      const op = Masu100Presenter._opOf(state.mode);
-      const store = loadMasu100Store();
-      const prevBest = op ? bestMasu100Times(store)[op] : null;
+      const op = Masu25Presenter._opOf(state.mode);
+      const store = loadMasu25Store();
+      const prevBest = op ? bestMasu25Times(store)[op] : null;
       if (op) {
         const attempt = {
           date: todayKey(),
           sec: roundedSec,
-          mistakes: Masu100Presenter.mistakes,
+          mistakes: Masu25Presenter.mistakes,
           at: Date.now(),
         };
-        saveMasu100Store(appendMasu100Attempt(store, op, attempt));
+        saveMasu25Store(appendMasu25Attempt(store, op, attempt));
       }
-      document.getElementById('masu100-progress-fill').style.width = '100%';
-      showMasu100Result(state.mode, roundedSec, Masu100Presenter.mistakes, prevBest);
+      document.getElementById('masu25-progress-fill').style.width = '100%';
+      showMasu25Result(state.mode, roundedSec, Masu25Presenter.mistakes, prevBest);
     },
 
     markFinished() {
-      document.getElementById('masu100-progress-fill').style.width = '100%';
+      document.getElementById('masu25-progress-fill').style.width = '100%';
     },
   };
 
-  function formatMasu100Time(sec) {
+  function formatMasu25Time(sec) {
     if (!Number.isFinite(sec) || sec < 0) sec = 0;
     const m = Math.floor(sec / 60);
     const s = sec - m * 60;
@@ -1965,29 +1965,29 @@
     return `${m}:${s.toFixed(1).padStart(4, '0')}`;
   }
 
-  // --- 100 ます計算 の永続化ヘルパ ---
-  function loadMasu100Store() {
+  // --- 25 ます計算 の永続化ヘルパ ---
+  function loadMasu25Store() {
     try {
-      const raw = localStorage.getItem(MASU100_STORAGE_KEY);
-      return normalizeMasu100(raw ? JSON.parse(raw) : null);
+      const raw = localStorage.getItem(MASU25_STORAGE_KEY);
+      return normalizeMasu25(raw ? JSON.parse(raw) : null);
     } catch (e) {
-      return normalizeMasu100(null);
+      return normalizeMasu25(null);
     }
   }
-  function saveMasu100Store(store) {
+  function saveMasu25Store(store) {
     try {
-      localStorage.setItem(MASU100_STORAGE_KEY, JSON.stringify(store));
+      localStorage.setItem(MASU25_STORAGE_KEY, JSON.stringify(store));
     } catch (e) { /* quota等は無視 */ }
   }
 
-  function showMasu100Result(mode, sec, mistakes, prevBest) {
+  function showMasu25Result(mode, sec, mistakes, prevBest) {
     document.getElementById('result-mode').textContent = stateModeInfo(mode)?.label ?? '';
     document.getElementById('result-score-normal').classList.add('hidden');
     const timeEl = document.getElementById('result-score-time');
     timeEl.classList.remove('hidden');
-    document.getElementById('result-time-value').textContent = formatMasu100Time(sec);
+    document.getElementById('result-time-value').textContent = formatMasu25Time(sec);
     const msg = document.getElementById('result-message');
-    msg.textContent = mistakes === 0 ? '🏆 ノーミス!' : `😊 100 もん クリア!`;
+    msg.textContent = mistakes === 0 ? '🏆 ノーミス!' : `😊 25 もん クリア!`;
     const sub = document.getElementById('result-sub');
     sub.classList.remove('hidden', 'best');
     const mistakeText = `まちがい: ${mistakes} かい`;
@@ -1995,30 +1995,30 @@
       sub.textContent = mistakeText;
     } else if (sec < prevBest) {
       sub.classList.add('best');
-      sub.textContent = `${mistakeText}  ／ 🎉 じこベスト! (まえ: ${formatMasu100Time(prevBest)})`;
+      sub.textContent = `${mistakeText}  ／ 🎉 じこベスト! (まえ: ${formatMasu25Time(prevBest)})`;
     } else {
-      sub.textContent = `${mistakeText}  ／ ベスト: ${formatMasu100Time(prevBest)}`;
+      sub.textContent = `${mistakeText}  ／ ベスト: ${formatMasu25Time(prevBest)}`;
     }
     showScreen('result');
   }
 
-  // 通常モードで result 画面に戻るときに、100masu 表示を隠して既存 UI に戻す。
+  // 通常モードで result 画面に戻るときに、masu25 表示を隠して既存 UI に戻す。
   function resetResultForNormal() {
     document.getElementById('result-score-normal').classList.remove('hidden');
     document.getElementById('result-score-time').classList.add('hidden');
     document.getElementById('result-sub').classList.add('hidden');
   }
 
-  // --- 100 ます計算 サブメニュー描画 (自己ベスト表示) ---
-  function renderMasu100Menu() {
-    const store = loadMasu100Store();
-    const best = bestMasu100Times(store);
-    for (const op of MASU100_OPS) {
-      const el = document.getElementById(`masu100-best-${op}`);
+  // --- 25 ます計算 サブメニュー描画 (自己ベスト表示) ---
+  function renderMasu25Menu() {
+    const store = loadMasu25Store();
+    const best = bestMasu25Times(store);
+    for (const op of MASU25_OPS) {
+      const el = document.getElementById(`masu25-best-${op}`);
       if (!el) continue;
       el.textContent = best[op] == null
         ? 'まだ きろく なし'
-        : `ベスト ${formatMasu100Time(best[op])}`;
+        : `ベスト ${formatMasu25Time(best[op])}`;
     }
   }
 
@@ -2100,17 +2100,17 @@
     const modeData = modeBreakdown(stats[today] || {}, MODE_BREAKDOWN_DEFS);
     renderBarChart('chart-mode-today', modeData, d => d.count, d => d.label);
 
-    renderMasu100LineChart('chart-masu100');
+    renderMasu25LineChart('chart-masu25');
   }
 
-  // 100 ます計算 タイムの推移。演算 3 本の折れ線を 1 枚に重ねて描く。
+  // 25 ます計算 タイムの推移。演算 3 本の折れ線を 1 枚に重ねて描く。
   // 表示件数は per-op 15 件までに絞る (古すぎる attempt は俯瞰しづらい)。
-  const MASU100_LINE_LIMIT = 15;
-  function renderMasu100LineChart(containerId) {
+  const MASU25_LINE_LIMIT = 15;
+  function renderMasu25LineChart(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
-    const store = loadMasu100Store();
-    const recent = recentMasu100ByOp(store, MASU100_LINE_LIMIT);
+    const store = loadMasu25Store();
+    const recent = recentMasu25ByOp(store, MASU25_LINE_LIMIT);
     const model = buildLineChartModel(recent);
     if (model.empty) {
       container.innerHTML = '<div class="no-data">まだ きろくが ないよ</div>';
@@ -2140,7 +2140,7 @@
         parts.push(`<circle class="series-point" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${s.color}"/>`);
       }
     }
-    const svg = `<svg class="line-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="100ます タイム推移">${parts.join('')}</svg>`;
+    const svg = `<svg class="line-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="25ます タイム推移">${parts.join('')}</svg>`;
     // 凡例は attempt がある op のみ (series と 1:1)。
     const legend = series.map(s =>
       `<span><span class="swatch" style="background:${s.color}"></span>${escapeHtml(s.label)}</span>`
@@ -2209,7 +2209,7 @@
     if (!m) return;
     if (m.subMenu === 'mul') showScreen('mulMenu');
     else if (m.subMenu === 'kanji') showScreen('kanjiMenu');
-    else if (m.subMenu === 'masu100') showScreen('masu100Menu');
+    else if (m.subMenu === 'masu25') showScreen('masu25Menu');
     else if (m.subMenu === 'mix3') showScreen('mix3Menu');
     else if (m.kind === 'keypad') KeypadPresenter.start(m.key);
     else launchPresenter(ChoicePresenter.start(m.key)); // clock / choice
@@ -2217,11 +2217,11 @@
   document.querySelectorAll('[data-mix3-mode]').forEach(btn => {
     btn.addEventListener('click', () => KeypadPresenter.start(btn.dataset.mix3Mode));
   });
-  document.querySelectorAll('[data-masu100-mode]').forEach(btn => {
-    btn.addEventListener('click', () => Masu100Presenter.start(btn.dataset.masu100Mode));
+  document.querySelectorAll('[data-masu25-mode]').forEach(btn => {
+    btn.addEventListener('click', () => Masu25Presenter.start(btn.dataset.masu25Mode));
   });
-  document.querySelectorAll('[data-masu100-key]').forEach(k => {
-    k.addEventListener('click', () => Masu100Presenter.handleKey(k.dataset.masu100Key));
+  document.querySelectorAll('[data-masu25-key]').forEach(k => {
+    k.addEventListener('click', () => Masu25Presenter.handleKey(k.dataset.masu25Key));
   });
   document.querySelectorAll('[data-sub]').forEach(btn => {
     btn.addEventListener('click', () => KeypadPresenter.start('mul', btn.dataset.sub));

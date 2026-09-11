@@ -8,10 +8,10 @@ import {
   bestTimes,
   OPS,
   STORAGE_KEY,
-} from '../src/masu100/storage.mjs';
+} from '../src/masu25/storage.mjs';
 
 test('STORAGE_KEY / OPS がエクスポートされている', () => {
-  assert.equal(STORAGE_KEY, 'flushdrill_100masu_v1');
+  assert.equal(STORAGE_KEY, 'flushdrill_masu25_v1');
   assert.deepEqual([...OPS], ['add', 'sub', 'mul']);
 });
 
